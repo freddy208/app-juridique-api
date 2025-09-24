@@ -1,5 +1,4 @@
 name: CI
-
 on:
   pull_request:
     branches: [ develop, main, 'feature/**' ]
@@ -59,15 +58,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: test # build ne tourne que si les tests passent tous 
-
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
