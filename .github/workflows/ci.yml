@@ -57,10 +57,11 @@ jobs:
   # --- Build et migrations réelles sur Supabase ---
   build:
     runs-on: ubuntu-latest
-    needs: test # build ne tourne que si les tests passent
+    needs: test # build ne tourne que si les tests passent tous 
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
     steps:
       - name: Checkout code
