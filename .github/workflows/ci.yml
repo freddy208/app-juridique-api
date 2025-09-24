@@ -7,6 +7,8 @@ on:
 
 jobs:
   # --- Tests sur Postgres éphémère sur la base de donnees ---
+  # --- Tests sur Postgres éphémère ---
+
   test:
     runs-on: ubuntu-latest
 
@@ -61,6 +63,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
