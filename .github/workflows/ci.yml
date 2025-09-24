@@ -7,7 +7,7 @@ on:
     branches: [ develop, main ]
 
 jobs:
-  # --- Tests sur Postgres éphémère ---
+  # --- Tests sur Postgres éphémère sur la base de donnees ---
   test:
     runs-on: ubuntu-latest
 
