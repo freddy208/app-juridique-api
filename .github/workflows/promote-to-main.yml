@@ -49,7 +49,6 @@ jobs:
           labels: ci, auto-merge
           delete-branch: true
           draft: false
-          always-create: true   # 🔥 force la création du PR même si minimes diff
 
       # 5️⃣ Activer l’auto-merge sur la PR
       - name: Enable auto-merge
