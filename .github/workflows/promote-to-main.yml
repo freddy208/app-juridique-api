@@ -1,0 +1,33 @@
+name: Promote develop -> main
+on:
+  push:
+    branches: [ develop ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create PR to main
+        id: cpr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PAT }}          # PAT recommended
+          commit-message: "chore: promote develop → main"
+          branch: promote/develop-to-main
+          base: main
+          title: "Automated: promote develop → main"
+          body: |
+            PR created automatically by CI after successful pushes to develop.
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.PAT }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: squash
