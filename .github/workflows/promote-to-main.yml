@@ -8,21 +8,26 @@ permissions:
   pull-requests: write
 
 jobs:
-  create-pr:
+  promote:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Create PR to main
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.PAT }}          # PAT recommended
+          token: ${{ secrets.PAT }}
           commit-message: "chore: promote develop → main"
           branch: promote/develop-to-main
           base: main
           title: "Automated: promote develop → main"
           body: |
             PR created automatically by CI after successful pushes to develop.
+          labels: ci, promote
+          delete-branch: true   # 🔥 nettoie à la fin
+          draft: false
+          always-create: true   # 🔥 force la création du PR même si minimes diff
 
       - name: Enable auto-merge
         if: steps.cpr.outputs.pull-request-number
