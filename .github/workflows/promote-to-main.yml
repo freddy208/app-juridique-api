@@ -49,8 +49,6 @@ jobs:
           labels: ci, auto-merge
           delete-branch: true
           draft: false
-          always-create: true
-          update-existing: true   # 🔹 optimise: met à jour la PR si elle existe déjà
 
       # 5️⃣ Activer l’auto-merge sur la PR
       - name: Enable auto-merge
