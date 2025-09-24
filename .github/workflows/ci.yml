@@ -7,8 +7,6 @@ on:
 
 jobs:
   # --- Tests sur Postgres éphémère sur la base de donnees ---
-  # --- Tests sur Postgres éphémère ---
-
   test:
     runs-on: ubuntu-latest
 
