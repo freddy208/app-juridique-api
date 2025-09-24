@@ -1,7 +1,9 @@
-name: Promote develop -> main
+name: Promote develop -> main (Optimized)
+
 on:
   push:
-    branches: [ develop ]
+    branches:
+      - develop
 
 permissions:
   contents: write
@@ -11,9 +13,28 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout complet
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }}
+          fetch-depth: 0
 
-      - name: Create PR to main
+      # 2️⃣ Config Git
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      # 3️⃣ Assurer que develop est à jour avec main
+      - name: Sync develop with main
+        run: |
+          git fetch origin main
+          git checkout develop
+          git merge origin/main --no-edit || echo "No changes needed"
+          git push origin develop || echo "Nothing to push"
+
+      # 4️⃣ Créer ou mettre à jour la PR vers main
+      - name: Create or Update PR to main
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -23,12 +44,15 @@ jobs:
           base: main
           title: "Automated: promote develop → main"
           body: |
-            PR created automatically by CI after successful pushes to develop.
-          labels: ci, promote
-          delete-branch: true   # 🔥 nettoie à la fin
+            PR created automatically after pushing to develop.
+            This PR is kept in sync with the latest develop commits.
+          labels: ci, auto-merge
+          delete-branch: true
           draft: false
-          always-create: true   # 🔥 force la création du PR même si minimes diff
+          always-create: true
+          update-existing: true   # 🔹 optimise: met à jour la PR si elle existe déjà
 
+      # 5️⃣ Activer l’auto-merge sur la PR
       - name: Enable auto-merge
         if: steps.cpr.outputs.pull-request-number
         uses: peter-evans/enable-pull-request-automerge@v3
