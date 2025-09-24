@@ -13,7 +13,7 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout complet et propre
+      # 1️⃣ Checkout complet et propre pour éviter les conflits
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT }}
