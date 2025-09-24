@@ -10,3 +10,7 @@ bootstrap().catch((err) => {
   console.error('Error during bootstrap:', err);
   process.exit(1); // quitte le process si erreur rencontree lors de l'execution
 });
+  process.exit(1); // quitte le process si erreur
+});
+bootstrap();
+
