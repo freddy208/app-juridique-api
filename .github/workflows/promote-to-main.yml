@@ -15,6 +15,7 @@ jobs:
     steps:
       # 1️⃣ Checkout complet
       - uses: actions/checkout@v4
+<<<<<<< HEAD
         with:
           token: ${{ secrets.PAT }}
           fetch-depth: 0
@@ -35,6 +36,10 @@ jobs:
 
       # 4️⃣ Créer ou mettre à jour la PR vers main
       - name: Create or Update PR to main
+=======
+
+      - name: Create PR to main
+>>>>>>> origin/main
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -44,11 +49,19 @@ jobs:
           base: main
           title: "Automated: promote develop → main"
           body: |
+<<<<<<< HEAD
             PR created automatically after pushing to develop.
             This PR is kept in sync with the latest develop commits.
           labels: ci, auto-merge
           delete-branch: true
           draft: false
+=======
+            PR created automatically by CI after successful pushes to develop.
+          labels: ci, promote
+          delete-branch: true   # 🔥 nettoie à la fin
+          draft: false
+          always-create: true   # 🔥 force la création du PR même si minimes diff
+>>>>>>> origin/main
 
       # 5️⃣ Activer l’auto-merge sur la PR
       - name: Enable auto-merge
