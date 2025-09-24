@@ -13,19 +13,20 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout complet
+      # 1️⃣ Checkout complet et propre
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT }}
           fetch-depth: 0
+          clean: true   # 🔹 important pour éviter les conflits d'index
 
-      # 2️⃣ Config Git
+      # 2️⃣ Configurer Git
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-      # 3️⃣ Assurer que develop est à jour avec main
+      # 3️⃣ Synchroniser develop avec main
       - name: Sync develop with main
         run: |
           git fetch origin main
@@ -33,7 +34,7 @@ jobs:
           git merge origin/main --no-edit || echo "No changes needed"
           git push origin develop || echo "Nothing to push"
 
-      # 4️⃣ Créer ou mettre à jour la PR vers main
+      # 4️⃣ Créer la PR vers main
       - name: Create PR to main
         id: cpr
         uses: peter-evans/create-pull-request@v5
