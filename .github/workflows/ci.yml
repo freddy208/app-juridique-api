@@ -64,15 +64,6 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
-<<<<<<< HEAD
-=======
-    needs: test # build ne tourne que si les tests passent
-
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.DIRECT_URL }}
->>>>>>> origin/main
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
