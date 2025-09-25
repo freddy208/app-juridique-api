@@ -21,6 +21,6 @@ export class AuthController {
   @Post('logout')
   logout(@Req() req: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    return this.authService.logout(req.user);
+    return this.authService.logout(req.user.id);
   }
 }
