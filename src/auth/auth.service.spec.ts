@@ -1,5 +1,4 @@
 import { AuthService } from './auth.service';
-// src/auth/__tests__/auth.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -8,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
+  let jwtService: JwtService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -15,7 +15,9 @@ describe('AuthService', () => {
         AuthService,
         {
           provide: PrismaService,
-          useValue: { utilisateur: { findUnique: jest.fn() } },
+          useValue: {
+            utilisateur: { findUnique: jest.fn(), update: jest.fn() },
+          },
         },
         {
           provide: JwtService,
@@ -28,6 +30,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     prisma = module.get<PrismaService>(PrismaService);
+    jwtService = module.get<JwtService>(JwtService);
   });
 
   it('should validate user successfully', async () => {
@@ -61,13 +64,35 @@ describe('AuthService', () => {
     ).rejects.toThrow();
   });
 
-  it('should return access_token on login', () => {
+  it('should return access_token and refresh_token on login', () => {
     const user = { id: '1', email: 'test@test.com', role: 'ADMIN' };
+    // on simule que jwtService.sign renvoie un token différent selon le payload
+    (jwtService.sign as jest.Mock)
+      .mockReturnValueOnce('fake-access-token') // pour access
+      .mockReturnValueOnce('fake-refresh-token'); // pour refresh
+
     const result = service.login(user);
-    expect(result).toEqual({ access_token: 'fake-jwt-token' });
+    expect(result).toEqual({
+      access_token: 'fake-access-token',
+      refresh_token: 'fake-refresh-token',
+    });
   });
+
   it('should logout user', () => {
     const result = service.logout({ id: '1', email: 'test@test.com' });
     expect(result).toEqual({ message: 'Utilisateur 1 déconnecté avec succès' });
+  });
+
+  it('should return new access_token on refreshToken', () => {
+    const user = { id: '1', email: 'test@test.com', role: 'ADMIN' };
+    (jwtService.sign as jest.Mock).mockReturnValue('new-fake-access-token');
+
+    const result = service.refreshToken(user);
+    expect(result).toEqual({ access_token: 'new-fake-access-token' });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(jwtService.sign).toHaveBeenCalledWith(
+      { sub: '1', email: 'test@test.com', role: 'ADMIN' },
+      { expiresIn: '15m' },
+    );
   });
 });

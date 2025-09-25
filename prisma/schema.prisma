@@ -142,6 +142,7 @@ model Utilisateur {
   statut     StatutUtilisateur @default(ACTIF)
   creeLe     DateTime          @default(now())
   modifieLe  DateTime          @updatedAt
+  refreshToken String?  
 
   dossiers        Dossier[]             @relation("DossierResponsable")
   tachesCreees    Tache[]               @relation("CreateurTache")

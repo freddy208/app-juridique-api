@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from '../auth/auth.controller';
 import { AuthService } from '../auth/auth.service';
-//import { AuthService } from './auth.service';
+//import { RefreshTokenGuard } from '../auth/guards/refresh-token.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -15,12 +15,16 @@ describe('AuthController', () => {
           provide: AuthService,
           useValue: {
             validateUser: jest.fn(),
-            login: jest
+            login: jest.fn().mockReturnValue({
+              access_token: 'fake-access-token',
+              refresh_token: 'fake-refresh-token',
+            }),
+            logout: jest
               .fn()
-              .mockReturnValue({ access_token: 'fake-jwt-token' }),
-            logout: jest.fn().mockImplementation(() => ({
-              message: 'Déconnexion réussie',
-            })),
+              .mockReturnValue({ message: 'Déconnexion réussie' }),
+            refreshToken: jest
+              .fn()
+              .mockReturnValue({ access_token: 'new-access-token' }),
           },
         },
       ],
@@ -34,9 +38,8 @@ describe('AuthController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('login should return access_token', async () => {
+  it('login should return access_token and refresh_token', async () => {
     const loginDto = { email: 'test@test.com', motDePasse: '1234' };
-    // Mock validateUser pour qu'il retourne un utilisateur
     (authService.validateUser as jest.Mock).mockResolvedValue({
       id: '1',
       email: 'test@test.com',
@@ -44,15 +47,18 @@ describe('AuthController', () => {
     });
 
     const result = await controller.login(loginDto);
-    expect(result).toEqual({ access_token: 'fake-jwt-token' });
+    expect(result).toEqual({
+      access_token: 'fake-access-token',
+      refresh_token: 'fake-refresh-token',
+    });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.validateUser).toHaveBeenCalledWith(
       'test@test.com',
       '1234',
     );
   });
+
   it('logout should return success message', () => {
-    // Mock le service
     (authService.logout as jest.Mock).mockReturnValue({
       message: 'Déconnexion réussie',
     });
@@ -61,5 +67,22 @@ describe('AuthController', () => {
     expect(result).toEqual({ message: 'Déconnexion réussie' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.logout).toHaveBeenCalledWith('1');
+  });
+
+  it('refresh should return new access_token', () => {
+    // Mock user payload passé par le guard
+    const mockReq = {
+      user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
+    };
+
+    // On appelle directement la méthode du controller avec le mock
+    const result = controller.refresh(mockReq as any);
+    expect(result).toEqual({ access_token: 'new-access-token' });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.refreshToken).toHaveBeenCalledWith({
+      id: '1',
+      email: 'test@test.com',
+      role: 'ADMIN',
+    });
   });
 });
