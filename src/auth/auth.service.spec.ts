@@ -68,6 +68,6 @@ describe('AuthService', () => {
   });
   it('should logout user', () => {
     const result = service.logout('1');
-    expect(result).toEqual({ message: 'Déconnexion réussie' });
+    expect(result).toEqual({ message: 'Utilisateur 1 déconnecté avec succès' });
   });
 });
