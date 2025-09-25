@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+/*import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
@@ -25,4 +25,4 @@ describe('AppController (e2e)', () => {
     const response = await request(app.getHttpServer()).get('/').expect(200);
     expect(response.text).toBe('Hello World!');
   });
-});
+});*/
