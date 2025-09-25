@@ -11,6 +11,18 @@ describe('AuthController', () => {
   let controller: AuthController;
   let authService: AuthService;
 
+  const mockPrisma = {
+    utilisateur: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+  };
+
+  const mockAuthService = {
+    login: jest.fn(),
+    refresh: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -18,6 +30,8 @@ describe('AuthController', () => {
         AuthService,
         PrismaService,
         RefreshTokenGuard, // <== ajouté
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
       imports: [
         JwtModule.register({
