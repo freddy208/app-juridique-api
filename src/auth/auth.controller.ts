@@ -2,7 +2,6 @@ import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RefreshTokenDto } from './dto/refresh-token.dto'; // on créera ce DTO
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 
 @Controller('auth')
@@ -27,15 +26,12 @@ export class AuthController {
   }
 
   // Endpoint pour rafraîchir le token
+  // Endpoint pour rafraîchir le token
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshToken({
-      id: dto.userId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      email: dto.userEmail,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      role: dto.userRole,
-    });
+  refresh(@Req() req: any) {
+    // req.user est injecté automatiquement par le RefreshTokenGuard
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return this.authService.refreshToken(req.user);
   }
 }

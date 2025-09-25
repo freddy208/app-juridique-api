@@ -53,13 +53,20 @@ describe('AuthController', () => {
 
   it('login should return access_token and refresh_token', async () => {
     const loginDto = { email: 'test@test.com', motDePasse: '1234' };
+
     (authService.validateUser as jest.Mock).mockResolvedValue({
       id: '1',
       email: 'test@test.com',
       role: 'ADMIN',
     });
 
+    (authService.login as jest.Mock).mockResolvedValue({
+      access_token: 'fake-access-token',
+      refresh_token: 'fake-refresh-token',
+    });
+
     const result = await controller.login(loginDto);
+
     expect(result).toEqual({
       access_token: 'fake-access-token',
       refresh_token: 'fake-refresh-token',
@@ -69,14 +76,21 @@ describe('AuthController', () => {
       'test@test.com',
       '1234',
     );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.login).toHaveBeenCalledWith({
+      id: '1',
+      email: 'test@test.com',
+      role: 'ADMIN',
+    });
   });
 
-  it('logout should return success message', () => {
-    (authService.logout as jest.Mock).mockReturnValue({
+  it('logout should return success message', async () => {
+    (authService.logout as jest.Mock).mockResolvedValue({
       message: 'Déconnexion réussie',
     });
 
-    const result = controller.logout({ user: { id: '1' } } as any);
+    const result = await controller.logout({ user: { id: '1' } } as any);
+
     expect(result).toEqual({ message: 'Déconnexion réussie' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.logout).toHaveBeenCalledWith('1');
