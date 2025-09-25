@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { JwtService } from '@nestjs/jwt';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,6 +16,12 @@ describe('AuthService', () => {
         {
           provide: PrismaService,
           useValue: { utilisateur: { findUnique: jest.fn() } },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            sign: jest.fn().mockReturnValue('fake-jwt-token'),
+          },
         },
       ],
     }).compile();
@@ -52,5 +59,11 @@ describe('AuthService', () => {
     await expect(
       service.validateUser('test@test.com', 'wrong'),
     ).rejects.toThrow();
+  });
+
+  it('should return access_token on login', () => {
+    const user = { id: '1', email: 'test@test.com', role: 'ADMIN' };
+    const result = service.login(user);
+    expect(result).toEqual({ access_token: 'fake-jwt-token' });
   });
 });
