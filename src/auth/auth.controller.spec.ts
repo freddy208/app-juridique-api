@@ -20,7 +20,9 @@ describe('AuthController', () => {
 
   const mockAuthService = {
     login: jest.fn(),
-    refresh: jest.fn(),
+    validateUser: jest.fn(),
+    logout: jest.fn(),
+    refreshToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -81,12 +83,14 @@ describe('AuthController', () => {
   });
 
   it('refresh should return new access_token', () => {
-    // Mock user payload passé par le guard
     const mockReq = {
       user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
     };
 
-    // On appelle directement la méthode du controller avec le mock
+    (authService.refreshToken as jest.Mock).mockReturnValue({
+      access_token: 'new-access-token',
+    });
+
     const result = controller.refresh(mockReq as any);
     expect(result).toEqual({ access_token: 'new-access-token' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
