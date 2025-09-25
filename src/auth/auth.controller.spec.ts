@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from '../auth/auth.controller';
 import { AuthService } from '../auth/auth.service';
 import { JwtModule } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../prisma.service';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { jwtConstants } from './constants';
 //import { RefreshTokenGuard } from '../auth/guards/refresh-token.guard';
