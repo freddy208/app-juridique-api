@@ -1,0 +1,7 @@
+export enum EtapeProcedure {
+  INSTRUCTIVE = 'INSTRUCTIVE',
+  AUDIENCE = 'AUDIENCE',
+  JUGEMENT = 'JUGEMENT',
+  APPEL = 'APPEL',
+  EXECUTION = 'EXECUTION',
+}
