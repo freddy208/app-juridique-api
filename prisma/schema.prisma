@@ -9,9 +9,327 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-//
-// ENUMS
-//
+model Utilisateur {
+  id              String                @id @default(uuid())
+  prenom          String
+  nom             String
+  email           String                @unique
+  motDePasse      String
+  role            RoleUtilisateur       @default(ASSISTANT)
+  statut          StatutUtilisateur     @default(ACTIF)
+  creeLe          DateTime              @default(now())
+  modifieLe       DateTime              @updatedAt
+  refreshToken    String?
+  archives        Archive[]
+  correspondances Correspondance[]
+  documents       Document[]            @relation("DocumentsTeleverses")
+  dossiers        Dossier[]             @relation("DossierResponsable")
+  evenements      EvenementCalendrier[]
+  journauxAudit   JournalAudit[]
+  messages        MessageChat[]
+  notes           Note[]
+  tachesAssignees Tache[]               @relation("AssigneTache")
+  tachesCreees    Tache[]               @relation("CreateurTache")
+}
+
+model Client {
+  id              String           @id @default(uuid())
+  prenom          String
+  nom             String
+  nomEntreprise   String?
+  telephone       String?
+  email           String?
+  adresse         String?
+  statut          StatutClient     @default(ACTIF)
+  creeLe          DateTime         @default(now())
+  modifieLe       DateTime         @updatedAt
+  correspondances Correspondance[]
+  dossiers        Dossier[]
+  factures        Facture[]
+  notes           Note[]
+}
+
+model Dossier {
+  id               String                @id @default(uuid())
+  numeroUnique     String                @unique
+  clientId         String
+  titre            String
+  type             TypeDossier
+  description      String?
+  responsableId    String?
+  statut           StatutDossier         @default(OUVERT)
+  creeLe           DateTime              @default(now())
+  modifieLe        DateTime              @updatedAt
+  contentieux      Contentieux?
+  contrat          Contrat?
+  documents        Document[]
+  client           Client                @relation(fields: [clientId], references: [id])
+  responsable      Utilisateur?          @relation("DossierResponsable", fields: [responsableId], references: [id])
+  evenements       EvenementCalendrier[]
+  factures         Facture[]
+  immobilier       Immobilier?
+  messages         MessageChat[]
+  notes            Note[]
+  sinistreCorporel SinistreCorporel?
+  sinistreMateriel SinistreMateriel?
+  sinistreMortel   SinistreMortel?
+  sport            Sport?
+  taches           Tache[]
+}
+
+model SinistreCorporel {
+  id              String          @id @default(uuid())
+  dossierId       String          @unique
+  dateAccident    DateTime
+  lieuAccident    String
+  numeroPvPolice  String?
+  hopital         String?
+  rapportMedical  String?
+  graviteBlessure GraviteBlessure @default(MINEUR)
+  assureur        String?
+  numeroSinistre  String?
+  temoins         Json?
+  prejudice       Decimal?
+  creeLe          DateTime        @default(now())
+  modifieLe       DateTime        @updatedAt
+  dossier         Dossier         @relation(fields: [dossierId], references: [id])
+}
+
+model SinistreMateriel {
+  id                String             @id @default(uuid())
+  dossierId         String             @unique
+  dateAccident      DateTime
+  lieuAccident      String
+  categorieVehicule CategorieVehicule?
+  marqueVehicule    String?
+  modeleVehicule    String?
+  immatriculation   String?
+  numeroChassis     String?
+  numeroPvPolice    String?
+  assureur          String?
+  numeroSinistre    String?
+  estimationDegats  Decimal?
+  photosUrls        Json?
+  creeLe            DateTime           @default(now())
+  modifieLe         DateTime           @updatedAt
+  dossier           Dossier            @relation(fields: [dossierId], references: [id])
+}
+
+model SinistreMortel {
+  id                    String   @id @default(uuid())
+  dossierId             String   @unique
+  dateDeces             DateTime
+  lieuDeces             String?
+  certificatDeces       String?
+  certificatMedicoLegal String?
+  numeroPvPolice        String?
+  causeDeces            String?
+  ayantsDroit           Json?
+  indemniteReclamee     Decimal?
+  creeLe                DateTime @default(now())
+  modifieLe             DateTime @updatedAt
+  dossier               Dossier  @relation(fields: [dossierId], references: [id])
+}
+
+model Immobilier {
+  id               String         @id @default(uuid())
+  dossierId        String         @unique
+  adresseBien      String
+  numeroTitre      String?
+  numeroCadastre   String?
+  referenceNotaire String?
+  regimeFoncier    RegimeFoncier?
+  surfaceM2        Decimal?
+  typeLitige       String?
+  chefQuartier     String?
+  temoinsBornage   Json?
+  creeLe           DateTime       @default(now())
+  modifieLe        DateTime       @updatedAt
+  dossier          Dossier        @relation(fields: [dossierId], references: [id])
+}
+
+model Sport {
+  id               String    @id @default(uuid())
+  dossierId        String    @unique
+  club             String?
+  competition      String?
+  dateIncident     DateTime?
+  instanceSportive String?
+  referenceContrat String?
+  sanctions        Json?
+  creeLe           DateTime  @default(now())
+  modifieLe        DateTime  @updatedAt
+  dossier          Dossier   @relation(fields: [dossierId], references: [id])
+}
+
+model Contrat {
+  id               String    @id @default(uuid())
+  dossierId        String    @unique
+  partieA          String
+  partieB          String
+  dateEffet        DateTime
+  dateExpiration   DateTime?
+  valeurContrat    Decimal?
+  loiApplicable    String?   @default("CAMEROUN")
+  referenceNotaire String?
+  contratUrl       String?
+  creeLe           DateTime  @default(now())
+  modifieLe        DateTime  @updatedAt
+  dossier          Dossier   @relation(fields: [dossierId], references: [id])
+}
+
+model Contentieux {
+  id              String          @id @default(uuid())
+  dossierId       String          @unique
+  numeroAffaire   String?
+  tribunal        String?
+  juridiction     String?
+  demandeur       String?
+  defendeur       String?
+  avocatPlaignant String?
+  avocatDefenseur String?
+  etapeProcedure  EtapeProcedure? @default(INSTRUCTIVE)
+  montantReclame  Decimal?
+  datesAudiences  Json?
+  depots          Json?
+  rapportHussier  String?
+  creeLe          DateTime        @default(now())
+  modifieLe       DateTime        @updatedAt
+  dossier         Dossier         @relation(fields: [dossierId], references: [id])
+}
+
+model Document {
+  id           String         @id @default(uuid())
+  dossierId    String
+  televersePar String
+  titre        String
+  type         String
+  url          String
+  version      Int            @default(1)
+  statut       StatutDocument @default(ACTIF)
+  creeLe       DateTime       @default(now())
+  modifieLe    DateTime       @updatedAt
+  dossier      Dossier        @relation(fields: [dossierId], references: [id])
+  utilisateur  Utilisateur    @relation("DocumentsTeleverses", fields: [televersePar], references: [id])
+}
+
+model Tache {
+  id          String       @id @default(uuid())
+  dossierId   String?
+  titre       String
+  description String?
+  assigneeId  String?
+  creeParId   String
+  dateLimite  DateTime?
+  statut      StatutTache  @default(A_FAIRE)
+  creeLe      DateTime     @default(now())
+  modifieLe   DateTime     @updatedAt
+  assignee    Utilisateur? @relation("AssigneTache", fields: [assigneeId], references: [id])
+  createur    Utilisateur  @relation("CreateurTache", fields: [creeParId], references: [id])
+  dossier     Dossier?     @relation(fields: [dossierId], references: [id])
+}
+
+model EvenementCalendrier {
+  id          String          @id @default(uuid())
+  dossierId   String?
+  titre       String
+  description String?
+  debut       DateTime
+  fin         DateTime
+  creeParId   String
+  statut      StatutEvenement @default(PREVU)
+  creeLe      DateTime        @default(now())
+  modifieLe   DateTime        @updatedAt
+  createur    Utilisateur     @relation(fields: [creeParId], references: [id])
+  dossier     Dossier?        @relation(fields: [dossierId], references: [id])
+}
+
+model MessageChat {
+  id           String        @id @default(uuid())
+  dossierId    String?
+  expediteurId String
+  contenu      String
+  statut       StatutMessage @default(ENVOYE)
+  creeLe       DateTime      @default(now())
+  modifieLe    DateTime      @updatedAt
+  dossier      Dossier?      @relation(fields: [dossierId], references: [id])
+  expediteur   Utilisateur   @relation(fields: [expediteurId], references: [id])
+}
+
+model Facture {
+  id           String        @id @default(uuid())
+  dossierId    String?
+  clientId     String
+  montant      Decimal
+  dateEcheance DateTime
+  payee        Boolean       @default(false)
+  statut       StatutFacture @default(BROUILLON)
+  creeLe       DateTime      @default(now())
+  modifieLe    DateTime      @updatedAt
+  client       Client        @relation(fields: [clientId], references: [id])
+  dossier      Dossier?      @relation(fields: [dossierId], references: [id])
+}
+
+model PermissionRole {
+  id          String           @id @default(uuid())
+  role        RoleUtilisateur
+  module      String
+  lecture     Boolean          @default(true)
+  ecriture    Boolean          @default(false)
+  suppression Boolean          @default(false)
+  statut      StatutPermission @default(ACTIF)
+  creeLe      DateTime         @default(now())
+  modifieLe   DateTime         @updatedAt
+}
+
+model JournalAudit {
+  id             String      @id @default(uuid())
+  utilisateurId  String
+  action         String
+  typeCible      String
+  cibleId        String
+  ancienneValeur Json?
+  nouvelleValeur Json?
+  creeLe         DateTime    @default(now())
+  utilisateur    Utilisateur @relation(fields: [utilisateurId], references: [id])
+}
+
+model Archive {
+  id          String        @id @default(uuid())
+  typeObjet   String
+  objetId     String
+  archivePar  String
+  dateArchive DateTime      @default(now())
+  statut      StatutArchive @default(ARCHIVE)
+  creeLe      DateTime      @default(now())
+  modifieLe   DateTime      @updatedAt
+  utilisateur Utilisateur   @relation(fields: [archivePar], references: [id])
+}
+
+model Correspondance {
+  id            String             @id @default(uuid())
+  clientId      String
+  utilisateurId String
+  type          TypeCorrespondance
+  contenu       String?
+  creeLe        DateTime           @default(now())
+  modifieLe     DateTime           @updatedAt
+  client        Client             @relation(fields: [clientId], references: [id])
+  utilisateur   Utilisateur        @relation(fields: [utilisateurId], references: [id])
+}
+
+model Note {
+  id            String      @id @default(uuid())
+  clientId      String?
+  dossierId     String?
+  utilisateurId String
+  contenu       String
+  creeLe        DateTime    @default(now())
+  modifieLe     DateTime    @updatedAt
+  client        Client?     @relation(fields: [clientId], references: [id])
+  dossier       Dossier?    @relation(fields: [dossierId], references: [id])
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
+}
 
 enum RoleUtilisateur {
   ADMIN
@@ -126,344 +444,4 @@ enum TypeCorrespondance {
   EMAIL
   RENDEZ_VOUS
   AUTRE
-}
-
-//
-// MODELES
-//
-
-model Utilisateur {
-  id         String            @id @default(uuid())
-  prenom     String
-  nom        String
-  email      String            @unique
-  motDePasse String
-  role       RoleUtilisateur   @default(ASSISTANT)
-  statut     StatutUtilisateur @default(ACTIF)
-  creeLe     DateTime          @default(now())
-  modifieLe  DateTime          @updatedAt
-  refreshToken String?  
-
-  dossiers        Dossier[]             @relation("DossierResponsable")
-  tachesCreees    Tache[]               @relation("CreateurTache")
-  tachesAssignees Tache[]               @relation("AssigneTache")
-  evenements      EvenementCalendrier[]
-  messages        MessageChat[]
-  documents       Document[]            @relation("DocumentsTeleverses")
-  journauxAudit   JournalAudit[]
-  archives        Archive[]
-  correspondances Correspondance[]
-  notes           Note[]
-}
-
-model Client {
-  id            String       @id @default(uuid())
-  prenom        String
-  nom           String
-  nomEntreprise String?
-  telephone     String?
-  email         String?
-  adresse       String?
-  statut        StatutClient @default(ACTIF)
-  creeLe        DateTime     @default(now())
-  modifieLe     DateTime     @updatedAt
-
-  dossiers        Dossier[]
-  factures        Facture[]
-  correspondances Correspondance[]
-  notes           Note[]
-}
-
-model Dossier {
-  id            String        @id @default(uuid())
-  numeroUnique  String        @unique
-  clientId      String
-  client        Client        @relation(fields: [clientId], references: [id])
-  titre         String
-  type          TypeDossier
-  description   String?
-  responsableId String?
-  responsable   Utilisateur?  @relation("DossierResponsable", fields: [responsableId], references: [id])
-  statut        StatutDossier @default(OUVERT)
-  creeLe        DateTime      @default(now())
-  modifieLe     DateTime      @updatedAt
-
-  // Relations spécifiques par type
-  sinistreCorporel SinistreCorporel?
-  sinistreMateriel SinistreMateriel?
-  sinistreMortel   SinistreMortel?
-  immobilier       Immobilier?
-  sport            Sport?
-  contrat          Contrat?
-  contentieux      Contentieux?
-
-  // ⚡ Relations inverses pour Prisma
-  documents  Document[]
-  taches     Tache[]
-  evenements EvenementCalendrier[]
-  messages   MessageChat[]
-  factures   Facture[]
-  notes      Note[]
-}
-
-//
-// Sous-types de dossiers
-//
-
-model SinistreCorporel {
-  id              String          @id @default(uuid())
-  dossierId       String          @unique
-  dossier         Dossier         @relation(fields: [dossierId], references: [id])
-  dateAccident    DateTime
-  lieuAccident    String
-  numeroPvPolice  String?
-  hopital         String?
-  rapportMedical  String?
-  graviteBlessure GraviteBlessure @default(MINEUR)
-  assureur        String?
-  numeroSinistre  String?
-  temoins         Json?
-  prejudice       Decimal?
-  creeLe          DateTime        @default(now())
-  modifieLe       DateTime        @updatedAt
-}
-
-model SinistreMateriel {
-  id                String             @id @default(uuid())
-  dossierId         String             @unique
-  dossier           Dossier            @relation(fields: [dossierId], references: [id])
-  dateAccident      DateTime
-  lieuAccident      String
-  categorieVehicule CategorieVehicule?
-  marqueVehicule    String?
-  modeleVehicule    String?
-  immatriculation   String?
-  numeroChassis     String?
-  numeroPvPolice    String?
-  assureur          String?
-  numeroSinistre    String?
-  estimationDegats  Decimal?
-  photosUrls        Json?
-  creeLe            DateTime           @default(now())
-  modifieLe         DateTime           @updatedAt
-}
-
-model SinistreMortel {
-  id                    String   @id @default(uuid())
-  dossierId             String   @unique
-  dossier               Dossier  @relation(fields: [dossierId], references: [id])
-  dateDeces             DateTime
-  lieuDeces             String?
-  certificatDeces       String?
-  certificatMedicoLegal String?
-  numeroPvPolice        String?
-  causeDeces            String?
-  ayantsDroit           Json?
-  indemniteReclamee     Decimal?
-  creeLe                DateTime @default(now())
-  modifieLe             DateTime @updatedAt
-}
-
-model Immobilier {
-  id               String         @id @default(uuid())
-  dossierId        String         @unique
-  dossier          Dossier        @relation(fields: [dossierId], references: [id])
-  adresseBien      String
-  numeroTitre      String?
-  numeroCadastre   String?
-  referenceNotaire String?
-  regimeFoncier    RegimeFoncier?
-  surfaceM2        Decimal?
-  typeLitige       String?
-  chefQuartier     String?
-  temoinsBornage   Json?
-  creeLe           DateTime       @default(now())
-  modifieLe        DateTime       @updatedAt
-}
-
-model Sport {
-  id               String    @id @default(uuid())
-  dossierId        String    @unique
-  dossier          Dossier   @relation(fields: [dossierId], references: [id])
-  club             String?
-  competition      String?
-  dateIncident     DateTime?
-  instanceSportive String?
-  referenceContrat String?
-  sanctions        Json?
-  creeLe           DateTime  @default(now())
-  modifieLe        DateTime  @updatedAt
-}
-
-model Contrat {
-  id               String    @id @default(uuid())
-  dossierId        String    @unique
-  dossier          Dossier   @relation(fields: [dossierId], references: [id])
-  partieA          String
-  partieB          String
-  dateEffet        DateTime
-  dateExpiration   DateTime?
-  valeurContrat    Decimal?
-  loiApplicable    String?   @default("CAMEROUN")
-  referenceNotaire String?
-  contratUrl       String?
-  creeLe           DateTime  @default(now())
-  modifieLe        DateTime  @updatedAt
-}
-
-model Contentieux {
-  id              String          @id @default(uuid())
-  dossierId       String          @unique
-  dossier         Dossier         @relation(fields: [dossierId], references: [id])
-  numeroAffaire   String?
-  tribunal        String?
-  juridiction     String?
-  demandeur       String?
-  defendeur       String?
-  avocatPlaignant String?
-  avocatDefenseur String?
-  etapeProcedure  EtapeProcedure? @default(INSTRUCTIVE)
-  montantReclame  Decimal?
-  datesAudiences  Json?
-  depots          Json?
-  rapportHussier  String?
-  creeLe          DateTime        @default(now())
-  modifieLe       DateTime        @updatedAt
-}
-
-//
-// Autres entités
-//
-
-model Document {
-  id           String         @id @default(uuid())
-  dossierId    String
-  dossier      Dossier        @relation(fields: [dossierId], references: [id])
-  televersePar String
-  utilisateur  Utilisateur    @relation("DocumentsTeleverses", fields: [televersePar], references: [id])
-  titre        String
-  type         String
-  url          String
-  version      Int            @default(1)
-  statut       StatutDocument @default(ACTIF)
-  creeLe       DateTime       @default(now())
-  modifieLe    DateTime       @updatedAt
-}
-
-model Tache {
-  id          String       @id @default(uuid())
-  dossierId   String?
-  dossier     Dossier?     @relation(fields: [dossierId], references: [id])
-  titre       String
-  description String?
-  assigneeId  String?
-  assignee    Utilisateur? @relation("AssigneTache", fields: [assigneeId], references: [id])
-  creeParId   String
-  createur    Utilisateur  @relation("CreateurTache", fields: [creeParId], references: [id])
-  dateLimite  DateTime?
-  statut      StatutTache  @default(A_FAIRE)
-  creeLe      DateTime     @default(now())
-  modifieLe   DateTime     @updatedAt
-}
-
-model EvenementCalendrier {
-  id          String          @id @default(uuid())
-  dossierId   String?
-  dossier     Dossier?        @relation(fields: [dossierId], references: [id])
-  titre       String
-  description String?
-  debut       DateTime
-  fin         DateTime
-  creeParId   String
-  createur    Utilisateur     @relation(fields: [creeParId], references: [id])
-  statut      StatutEvenement @default(PREVU)
-  creeLe      DateTime        @default(now())
-  modifieLe   DateTime        @updatedAt
-}
-
-model MessageChat {
-  id           String        @id @default(uuid())
-  dossierId    String?
-  dossier      Dossier?      @relation(fields: [dossierId], references: [id])
-  expediteurId String
-  expediteur   Utilisateur   @relation(fields: [expediteurId], references: [id])
-  contenu      String
-  statut       StatutMessage @default(ENVOYE)
-  creeLe       DateTime      @default(now())
-  modifieLe    DateTime      @updatedAt
-}
-
-model Facture {
-  id           String        @id @default(uuid())
-  dossierId    String?
-  dossier      Dossier?      @relation(fields: [dossierId], references: [id])
-  clientId     String
-  client       Client        @relation(fields: [clientId], references: [id])
-  montant      Decimal
-  dateEcheance DateTime
-  payee        Boolean       @default(false)
-  statut       StatutFacture @default(BROUILLON)
-  creeLe       DateTime      @default(now())
-  modifieLe    DateTime      @updatedAt
-}
-
-model PermissionRole {
-  id          String           @id @default(uuid())
-  role        RoleUtilisateur
-  module      String
-  lecture     Boolean          @default(true)
-  ecriture    Boolean          @default(false)
-  suppression Boolean          @default(false)
-  statut      StatutPermission @default(ACTIF)
-  creeLe      DateTime         @default(now())
-  modifieLe   DateTime         @updatedAt
-}
-
-model JournalAudit {
-  id             String      @id @default(uuid())
-  utilisateurId  String
-  utilisateur    Utilisateur @relation(fields: [utilisateurId], references: [id])
-  action         String
-  typeCible      String
-  cibleId        String
-  ancienneValeur Json?
-  nouvelleValeur Json?
-  creeLe         DateTime    @default(now())
-}
-
-model Archive {
-  id          String        @id @default(uuid())
-  typeObjet   String
-  objetId     String
-  archivePar  String
-  utilisateur Utilisateur   @relation(fields: [archivePar], references: [id])
-  dateArchive DateTime      @default(now())
-  statut      StatutArchive @default(ARCHIVE)
-  creeLe      DateTime      @default(now())
-  modifieLe   DateTime      @updatedAt
-}
-
-model Correspondance {
-  id            String             @id @default(uuid())
-  clientId      String
-  client        Client             @relation(fields: [clientId], references: [id])
-  utilisateurId String
-  utilisateur   Utilisateur        @relation(fields: [utilisateurId], references: [id])
-  type          TypeCorrespondance
-  contenu       String?
-  creeLe        DateTime           @default(now())
-  modifieLe     DateTime           @updatedAt
-}
-
-model Note {
-  id            String      @id @default(uuid())
-  clientId      String?
-  client        Client?     @relation(fields: [clientId], references: [id])
-  dossierId     String?
-  dossier       Dossier?    @relation(fields: [dossierId], references: [id])
-  utilisateurId String
-  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
-  contenu       String
-  creeLe        DateTime    @default(now())
-  modifieLe     DateTime    @updatedAt
 }
