@@ -1,7 +1,7 @@
 import { AuthService } from './auth.service';
 // src/auth/__tests__/auth.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {
