@@ -37,9 +37,8 @@ export class AuthService {
     };
   }
 
-  logout(user: any) {
-    // Ici tu peux supprimer le refresh token si tu en as un
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    return { message: `Utilisateur ${user.email} déconnecté avec succès` };
+  logout(user: { id: string; email: string }) {
+    // On utilise l'email pour le message, mais tu peux aussi utiliser l'id
+    return { message: `Utilisateur ${user.id} déconnecté avec succès` };
   }
 }

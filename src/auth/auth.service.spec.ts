@@ -67,7 +67,7 @@ describe('AuthService', () => {
     expect(result).toEqual({ access_token: 'fake-jwt-token' });
   });
   it('should logout user', () => {
-    const result = service.logout('1');
+    const result = service.logout({ id: '1', email: 'test@test.com' });
     expect(result).toEqual({ message: 'Utilisateur 1 déconnecté avec succès' });
   });
 });
