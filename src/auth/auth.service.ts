@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -34,5 +35,11 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(payload),
     };
+  }
+
+  logout(user: any) {
+    // Ici tu peux supprimer le refresh token si tu en as un
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return { message: `Utilisateur ${user.email} déconnecté avec succès` };
   }
 }

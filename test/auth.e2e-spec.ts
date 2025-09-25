@@ -48,4 +48,12 @@ describe('AuthController (e2e)', () => {
 
     expect(response.body).toHaveProperty('access_token');
   });
+  it('/auth/logout (POST) should logout successfully', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/logout')
+      .send()
+      .expect(201);
+
+    expect(response.body).toEqual({ message: 'Déconnexion réussie' });
+  });
 });

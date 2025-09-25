@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from '../auth/auth.controller';
 import { AuthService } from '../auth/auth.service';
+//import { AuthService } from './auth.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -17,6 +18,9 @@ describe('AuthController', () => {
             login: jest
               .fn()
               .mockReturnValue({ access_token: 'fake-jwt-token' }),
+            logout: jest.fn().mockImplementation(() => ({
+              message: 'Déconnexion réussie',
+            })),
           },
         },
       ],
@@ -46,5 +50,16 @@ describe('AuthController', () => {
       'test@test.com',
       '1234',
     );
+  });
+  it('logout should return success message', () => {
+    // Mock le service
+    (authService.logout as jest.Mock).mockReturnValue({
+      message: 'Déconnexion réussie',
+    });
+
+    const result = controller.logout({ user: { id: '1' } } as any);
+    expect(result).toEqual({ message: 'Déconnexion réussie' });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.logout).toHaveBeenCalledWith('1');
   });
 });
