@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from '../auth/auth.controller';
 import { AuthService } from '../auth/auth.service';
+import { JwtModule } from '@nestjs/jwt';
+import { PrismaService } from 'src/prisma.service';
+import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { jwtConstants } from './constants';
 //import { RefreshTokenGuard } from '../auth/guards/refresh-token.guard';
 
 describe('AuthController', () => {
@@ -11,27 +15,20 @@ describe('AuthController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        {
-          provide: AuthService,
-          useValue: {
-            validateUser: jest.fn(),
-            login: jest.fn().mockReturnValue({
-              access_token: 'fake-access-token',
-              refresh_token: 'fake-refresh-token',
-            }),
-            logout: jest
-              .fn()
-              .mockReturnValue({ message: 'Déconnexion réussie' }),
-            refreshToken: jest
-              .fn()
-              .mockReturnValue({ access_token: 'new-access-token' }),
-          },
-        },
+        AuthService,
+        PrismaService,
+        RefreshTokenGuard, // <== ajouté
+      ],
+      imports: [
+        JwtModule.register({
+          secret: jwtConstants.secret,
+          signOptions: { expiresIn: '1h' },
+        }),
       ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
-    authService = module.get<AuthService>(AuthService);
+    authService = module.get<AuthService>(AuthService); //
   });
 
   it('should be defined', () => {

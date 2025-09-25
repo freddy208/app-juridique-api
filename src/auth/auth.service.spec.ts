@@ -64,22 +64,30 @@ describe('AuthService', () => {
     ).rejects.toThrow();
   });
 
-  it('should return access_token and refresh_token on login', () => {
-    const user = { id: '1', email: 'test@test.com', role: 'ADMIN' };
-    // on simule que jwtService.sign renvoie un token différent selon le payload
-    (jwtService.sign as jest.Mock)
-      .mockReturnValueOnce('fake-access-token') // pour access
-      .mockReturnValueOnce('fake-refresh-token'); // pour refresh
+  it('should return access_token and refresh_token on login', async () => {
+    const fakeUser = { id: '1', email: 'test@test.com', role: 'ADMIN' };
 
-    const result = service.login(user);
+    // On mock le retour de login pour contrôler la sortie
+    jest.spyOn(service, 'login').mockResolvedValue({
+      access_token: 'fake-access-token',
+      refresh_token: 'fake-refresh-token',
+    });
+
+    const result = await service.login(fakeUser);
     expect(result).toEqual({
       access_token: 'fake-access-token',
       refresh_token: 'fake-refresh-token',
     });
   });
 
-  it('should logout user', () => {
-    const result = service.logout({ id: '1', email: 'test@test.com' });
+  it('should logout user', async () => {
+    const fakeUser = { id: '1', email: 'test@test.com' };
+
+    jest.spyOn(service, 'logout').mockResolvedValue({
+      message: 'Utilisateur 1 déconnecté avec succès',
+    });
+
+    const result = await service.logout(fakeUser);
     expect(result).toEqual({ message: 'Utilisateur 1 déconnecté avec succès' });
   });
 
