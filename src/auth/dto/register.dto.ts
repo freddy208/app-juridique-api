@@ -1,20 +1,22 @@
 // register.dto.ts
-import { IsEmail, IsString, IsOptional } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, MinLength } from 'class-validator';
 import { RoleUtilisateur } from '../../enums/role-utilisateur.enum';
 
 export class RegisterDto {
-  @IsString()
+  @IsNotEmpty()
   prenom: string;
 
-  @IsString()
+  @IsNotEmpty()
   nom: string;
 
   @IsEmail()
   email: string;
 
-  @IsString()
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   motDePasse: string;
 
-  @IsOptional()
-  role?: RoleUtilisateur;
+  @IsEnum(RoleUtilisateur, { message: 'Rôle invalide' })
+  role: RoleUtilisateur;
 }

@@ -5,6 +5,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { jwtConstants } from './constants';
+import { RegisterDto } from './dto/register.dto';
+import { RoleUtilisateur } from '../enums/role-utilisateur.enum';
 //import { RefreshTokenGuard } from '../auth/guards/refresh-token.guard';
 
 describe('AuthController', () => {
@@ -23,6 +25,7 @@ describe('AuthController', () => {
     validateUser: jest.fn(),
     logout: jest.fn(),
     refreshToken: jest.fn(),
+    register: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -113,5 +116,33 @@ describe('AuthController', () => {
       email: 'test@test.com',
       role: 'ADMIN',
     });
+  });
+  it('register should create a new user and return tokens', async () => {
+    const registerDto: RegisterDto = {
+      prenom: 'Jean',
+      nom: 'Dupont',
+      email: 'new@test.com',
+      motDePasse: '123456',
+      role: RoleUtilisateur.ADMIN, // ou RoleUtilisateur.USER selon ton enum
+    };
+
+    const fakeReq = { user: { id: 'creator-1', email: 'admin@test.com' } };
+
+    (authService.register as jest.Mock).mockResolvedValue({
+      access_token: 'new-access-token',
+      refresh_token: 'new-refresh-token',
+    });
+
+    const result = await controller.register(fakeReq as any, registerDto);
+
+    expect(result).toEqual({
+      access_token: 'new-access-token',
+      refresh_token: 'new-refresh-token',
+    });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.register).toHaveBeenCalledWith(
+      fakeReq.user,
+      registerDto,
+    );
   });
 });

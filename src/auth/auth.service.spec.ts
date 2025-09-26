@@ -3,11 +3,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { RoleUtilisateur } from '../enums/role-utilisateur.enum';
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
   let jwtService: JwtService;
+
+  const adminUser = {
+    id: 'admin-1',
+    email: 'admin@test.com',
+    role: RoleUtilisateur.ADMIN,
+  };
+  const newUserData = {
+    prenom: 'John',
+    nom: 'Doe',
+    email: 'new@test.com',
+    motDePasse: '123456',
+    role: RoleUtilisateur.STAGIAIRE,
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,7 +31,11 @@ describe('AuthService', () => {
         {
           provide: PrismaService,
           useValue: {
-            utilisateur: { findUnique: jest.fn(), update: jest.fn() },
+            utilisateur: {
+              findUnique: jest.fn(),
+              update: jest.fn(),
+              create: jest.fn(),
+            },
           },
         },
         {
@@ -38,12 +57,10 @@ describe('AuthService', () => {
       id: '1',
       email: 'test@test.com',
       motDePasse: await bcrypt.hash('1234', 10),
-      role: 'ADMIN',
+      role: RoleUtilisateur.ADMIN,
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(fakeUser);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const user = await service.validateUser('test@test.com', '1234');
     expect(user).toHaveProperty('id', '1');
     expect(user).not.toHaveProperty('motDePasse');
@@ -54,9 +71,8 @@ describe('AuthService', () => {
       id: '1',
       email: 'test@test.com',
       motDePasse: await bcrypt.hash('1234', 10),
-      role: 'ADMIN',
+      role: RoleUtilisateur.ADMIN,
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(fakeUser);
 
     await expect(
@@ -65,9 +81,12 @@ describe('AuthService', () => {
   });
 
   it('should return access_token and refresh_token on login', async () => {
-    const fakeUser = { id: '1', email: 'test@test.com', role: 'ADMIN' };
+    const fakeUser = {
+      id: '1',
+      email: 'test@test.com',
+      role: RoleUtilisateur.ADMIN,
+    };
 
-    // On mock le retour de login pour contrôler la sortie
     jest.spyOn(service, 'login').mockResolvedValue({
       access_token: 'fake-access-token',
       refresh_token: 'fake-refresh-token',
@@ -92,15 +111,75 @@ describe('AuthService', () => {
   });
 
   it('should return new access_token on refreshToken', () => {
-    const user = { id: '1', email: 'test@test.com', role: 'ADMIN' };
+    const user = {
+      id: '1',
+      email: 'test@test.com',
+      role: RoleUtilisateur.ADMIN,
+    };
     (jwtService.sign as jest.Mock).mockReturnValue('new-fake-access-token');
 
     const result = service.refreshToken(user);
     expect(result).toEqual({ access_token: 'new-fake-access-token' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(jwtService.sign).toHaveBeenCalledWith(
-      { sub: '1', email: 'test@test.com', role: 'ADMIN' },
+      { sub: '1', email: 'test@test.com', role: RoleUtilisateur.ADMIN },
       { expiresIn: '15m' },
     );
+  });
+
+  it('should throw ConflictException if user already exists', async () => {
+    (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue({
+      id: '2',
+      email: 'new@test.com',
+    });
+
+    await expect(service.register(adminUser, newUserData)).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('should throw ForbiddenException if currentUser role is not allowed', async () => {
+    const nonAdminUser = {
+      id: 'user-1',
+      email: 'user@test.com',
+      role: RoleUtilisateur.STAGIAIRE,
+    };
+    (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.register(nonAdminUser, newUserData)).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('should create user and return tokens', async () => {
+    (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.utilisateur.create as jest.Mock).mockResolvedValue({
+      id: '3',
+      ...newUserData,
+      motDePasse: 'hashed-password',
+    });
+
+    jest.spyOn(service, 'login').mockResolvedValue({
+      access_token: 'new-access-token',
+      refresh_token: 'new-refresh-token',
+    });
+
+    const result = await service.register(adminUser, newUserData);
+
+    expect(result).toEqual({
+      access_token: 'new-access-token',
+      refresh_token: 'new-refresh-token',
+    });
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.utilisateur.create).toHaveBeenCalledWith({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: expect.objectContaining({
+        prenom: 'John',
+        nom: 'Doe',
+        email: 'new@test.com',
+        role: RoleUtilisateur.STAGIAIRE,
+      }),
+    });
   });
 });

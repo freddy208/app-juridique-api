@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 
@@ -10,7 +11,6 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const user = await this.authService.validateUser(
       loginDto.email,
       loginDto.motDePasse,
@@ -21,8 +21,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   async logout(@Req() req: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    return this.authService.logout(req.user.id);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+    return this.authService.logout({ id: req.user.sub, email: req.user.email });
   }
 
   // Endpoint pour rafraîchir le token
@@ -33,5 +33,12 @@ export class AuthController {
     // req.user est injecté automatiquement par le RefreshTokenGuard
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return this.authService.refreshToken(req.user);
+  }
+
+  @UseGuards(JwtAuthGuard) // Seuls les connectés peuvent créer
+  @Post('register')
+  async register(@Req() req, @Body() dto: RegisterDto) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return this.authService.register(req.user, dto);
   }
 }
