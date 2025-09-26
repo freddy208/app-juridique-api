@@ -6,51 +6,48 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
 
-  // Préfixe global (ex: /api/v1/auth, /api/v1/users)
+  // Préfixe global (optionnel)
   app.setGlobalPrefix('api/v1');
 
   // Validation automatique des DTOs
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // supprime les champs non attendus
-      forbidNonWhitelisted: true, // bloque si champs inconnus
-      transform: true, // transforme automatiquement les types (string → number)
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
-  //  Config Swagger
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+  // Swagger configuration
   const config = new DocumentBuilder()
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     .setTitle('API Cabinet Juridique')
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    .setDescription('Documentation officielle de l’API du cabinet juridique')
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    .setDescription('Documentation officielle de l’API')
     .setVersion('1.0')
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'JWT-auth',
-    ) // bouton "Authorize" dans Swagger
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    )
     .build();
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   const document = SwaggerModule.createDocument(app, config);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: { persistAuthorization: true }, // garde le token après refresh page
+    swaggerOptions: { persistAuthorization: true },
   });
 
-  // Lancement
+  //  Rediriger `/` vers `/docs`
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/', (req, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    res.redirect('/docs');
+  });
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(` Application is running on: http://localhost:${port}/api/v1`);
-  console.log(`Swagger docs available at: http://localhost:${port}/docs`);
+  console.log(` API running: http://localhost:${port}`);
+  console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
 
-// Gestion propre des erreurs
 bootstrap().catch((err) => {
-  console.error('Error during bootstrap:', err);
+  console.error(' Error during bootstrap:', err);
   process.exit(1);
 });
