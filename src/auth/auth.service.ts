@@ -93,4 +93,22 @@ export class AuthService {
 
     return this.login(user);
   }
+  // auth.service.ts
+
+  async me(userId: string) {
+    // On récupère l'utilisateur actuel en base
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Utilisateur non trouvé');
+    }
+
+    // On retire le mot de passe avant de renvoyer l'objet
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { motDePasse, refreshToken, ...safeUser } = user;
+
+    return safeUser;
+  }
 }

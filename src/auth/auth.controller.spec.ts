@@ -152,4 +152,28 @@ describe('AuthController', () => {
       registerDto,
     );
   });
+  it('me should return the current logged user info', async () => {
+    const fakeReq = { user: { sub: '1' } };
+
+    (authService.me as jest.Mock).mockResolvedValue({
+      id: '1',
+      email: 'user@test.com',
+      prenom: 'John',
+      nom: 'Doe',
+      role: RoleUtilisateur.ADMIN,
+    });
+
+    const result = await controller.me(fakeReq as any);
+
+    expect(result).toEqual({
+      id: '1',
+      email: 'user@test.com',
+      prenom: 'John',
+      nom: 'Doe',
+      role: RoleUtilisateur.ADMIN,
+    });
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.me).toHaveBeenCalledWith('1');
+  });
 });

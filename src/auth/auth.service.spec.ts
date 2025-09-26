@@ -182,4 +182,38 @@ describe('AuthService', () => {
       }),
     });
   });
+  it('should return user data without motDePasse and refreshToken', async () => {
+    const fakeUser = {
+      id: '1',
+      email: 'user@test.com',
+      prenom: 'John',
+      nom: 'Doe',
+      role: RoleUtilisateur.ADMIN,
+      motDePasse: 'hashed-password',
+      refreshToken: 'some-refresh-token',
+    };
+
+    (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(fakeUser);
+
+    const result = await service.me('1');
+
+    expect(result).toEqual({
+      id: '1',
+      email: 'user@test.com',
+      prenom: 'John',
+      nom: 'Doe',
+      role: RoleUtilisateur.ADMIN,
+    });
+
+    expect(result).not.toHaveProperty('motDePasse');
+    expect(result).not.toHaveProperty('refreshToken');
+  });
+
+  it('should throw UnauthorizedException if user not found', async () => {
+    (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.me('non-existent-id')).rejects.toThrow(
+      'Utilisateur non trouvé',
+    );
+  });
 });
