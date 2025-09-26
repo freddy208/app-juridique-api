@@ -10,12 +10,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { RoleUtilisateur as PrismaRoleUtilisateur } from '../../generated/prisma';
 import { IUser, IRegisterDto } from './interfaces/user.interface';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService, // injection
   ) {}
 
   async validateUser(email: string, motDePasse: string) {
@@ -110,5 +112,53 @@ export class AuthService {
     const { motDePasse, refreshToken, ...safeUser } = user;
 
     return safeUser;
+  }
+  //forgot password
+  async forgotPassword(email: string) {
+    const user = await this.prisma.utilisateur.findUnique({ where: { email } });
+    if (!user) {
+      // toujours renvoyer le même message pour ne pas divulguer l’existence
+      return {
+        message:
+          'Si cet email existe, un message de réinitialisation a été envoyé.',
+      };
+    }
+
+    const resetToken = this.jwtService.sign(
+      { sub: user.id, email: user.email },
+      { expiresIn: '15m' },
+    );
+
+    await this.prisma.utilisateur.update({
+      where: { email },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: new Date(Date.now() + 15 * 60 * 1000),
+      },
+    });
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+    const html = `
+      <h1>Cabinet Juridique XYZ</h1>
+      <p>Bonjour ${user.prenom},</p>
+      <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+      <p>Cliquez sur ce lien pour réinitialiser votre mot de passe :</p>
+      <a href="${resetLink}">${resetLink}</a>
+      <p>Ce lien expirera dans 15 minutes.</p>
+      <p>Si vous n'avez pas demandé cette réinitialisation, ignorez ce message.</p>
+      <p>Merci,<br/>Cabinet Juridix Consulting</p>
+    `;
+
+    await this.mailService.sendMail(
+      user.email,
+      'Réinitialisation de votre mot de passe',
+      html,
+    );
+
+    return {
+      message:
+        'Si cet email existe, un message de réinitialisation a été envoyé.',
+    };
   }
 }

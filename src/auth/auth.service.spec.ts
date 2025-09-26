@@ -216,4 +216,67 @@ describe('AuthService', () => {
       'Utilisateur non trouvé',
     );
   });
+  describe('forgotPassword', () => {
+    let mailService: any;
+
+    beforeEach(() => {
+      mailService = {
+        sendMail: jest.fn().mockResolvedValue(true),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      service['mailService'] = mailService; // injecter le mock
+    });
+
+    it('should send reset email if user exists', async () => {
+      const email = 'user@test.com';
+      const user = {
+        id: '1',
+        prenom: 'John',
+        email,
+      };
+
+      (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(user);
+      (prisma.utilisateur.update as jest.Mock).mockResolvedValue(true);
+      (jwtService.sign as jest.Mock).mockReturnValue('fake-reset-token');
+
+      const result = await service.forgotPassword(email);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.utilisateur.findUnique).toHaveBeenCalledWith({
+        where: { email },
+      });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.utilisateur.update).toHaveBeenCalledWith({
+        where: { email },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({
+          resetPasswordToken: 'fake-reset-token',
+        }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        email,
+        'Réinitialisation de votre mot de passe',
+        expect.stringContaining('Cabinet Juridix Consulting'),
+      );
+      expect(result).toEqual({
+        message:
+          'Si cet email existe, un message de réinitialisation a été envoyé.',
+      });
+    });
+
+    it('should return same message if user does not exist', async () => {
+      const email = 'unknown@test.com';
+      (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.forgotPassword(email);
+
+      expect(result).toEqual({
+        message:
+          'Si cet email existe, un message de réinitialisation a été envoyé.',
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(mailService.sendMail).not.toHaveBeenCalled();
+    });
+  });
 });

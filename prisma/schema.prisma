@@ -20,6 +20,8 @@ model Utilisateur {
   creeLe          DateTime              @default(now())
   modifieLe       DateTime              @updatedAt
   refreshToken    String?
+  resetPasswordToken  String?  
+  resetPasswordExpires DateTime? 
   archives        Archive[]
   correspondances Correspondance[]
   documents       Document[]            @relation("DocumentsTeleverses")

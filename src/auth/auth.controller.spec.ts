@@ -177,4 +177,22 @@ describe('AuthController', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.me).toHaveBeenCalledWith('1');
   });
+  //forgot password
+  it('forgotPassword should call service and return message', async () => {
+    const body = { email: 'user@test.com' };
+
+    (authService.forgotPassword as jest.Mock).mockResolvedValue({
+      message:
+        'Si cet email existe, un message de réinitialisation a été envoyé.',
+    });
+
+    const result = await controller.forgotPassword(body);
+
+    expect(result).toEqual({
+      message:
+        'Si cet email existe, un message de réinitialisation a été envoyé.',
+    });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.forgotPassword).toHaveBeenCalledWith('user@test.com');
+  });
 });
