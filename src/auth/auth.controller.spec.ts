@@ -26,6 +26,7 @@ describe('AuthController', () => {
     logout: jest.fn(),
     refreshToken: jest.fn(),
     register: jest.fn(),
+    me: jest.fn(),
   };
 
   beforeEach(async () => {
