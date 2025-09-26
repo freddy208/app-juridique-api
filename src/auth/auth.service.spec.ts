@@ -5,11 +5,13 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { RoleUtilisateur } from '../enums/role-utilisateur.enum';
+import { MailService } from '../mail/mail.service';
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
   let jwtService: JwtService;
+  let module: TestingModule;
 
   const adminUser = {
     id: 'admin-1',
@@ -25,7 +27,7 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         AuthService,
         {
@@ -40,9 +42,11 @@ describe('AuthService', () => {
         },
         {
           provide: JwtService,
-          useValue: {
-            sign: jest.fn().mockReturnValue('fake-jwt-token'),
-          },
+          useValue: { sign: jest.fn().mockReturnValue('fake-jwt-token') },
+        },
+        {
+          provide: MailService,
+          useValue: { sendMail: jest.fn().mockResolvedValue(true) },
         },
       ],
     }).compile();
@@ -217,14 +221,10 @@ describe('AuthService', () => {
     );
   });
   describe('forgotPassword', () => {
-    let mailService: any;
+    let mailService: MailService;
 
     beforeEach(() => {
-      mailService = {
-        sendMail: jest.fn().mockResolvedValue(true),
-      };
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      service['mailService'] = mailService; // injecter le mock
+      mailService = module.get<MailService>(MailService);
     });
 
     it('should send reset email if user exists', async () => {
@@ -253,7 +253,7 @@ describe('AuthService', () => {
           resetPasswordToken: 'fake-reset-token',
         }),
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mailService.sendMail).toHaveBeenCalledWith(
         email,
         'Réinitialisation de votre mot de passe',
@@ -275,7 +275,7 @@ describe('AuthService', () => {
         message:
           'Si cet email existe, un message de réinitialisation a été envoyé.',
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mailService.sendMail).not.toHaveBeenCalled();
     });
   });
