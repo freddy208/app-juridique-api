@@ -46,7 +46,10 @@ describe('AuthService', () => {
         },
         {
           provide: JwtService,
-          useValue: { sign: jest.fn().mockReturnValue('fake-jwt-token') },
+          useValue: {
+            sign: jest.fn().mockReturnValue('fake-jwt-token'),
+            verify: jest.fn(),
+          },
         },
         {
           provide: MailService,
