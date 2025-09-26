@@ -27,6 +27,7 @@ describe('AuthController', () => {
     refreshToken: jest.fn(),
     register: jest.fn(),
     me: jest.fn(),
+    forgotPassword: jest.fn(),
   };
 
   beforeEach(async () => {
