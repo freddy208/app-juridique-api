@@ -92,11 +92,18 @@ describe('AuthController', () => {
       message: 'Déconnexion réussie',
     });
 
-    const result = await controller.logout({ user: { id: '1' } } as any);
+    const mockReq = {
+      user: { sub: '1', email: 'test@test.com' },
+    };
+
+    const result = await controller.logout(mockReq as any);
 
     expect(result).toEqual({ message: 'Déconnexion réussie' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.logout).toHaveBeenCalledWith('1');
+    expect(authService.logout).toHaveBeenCalledWith({
+      id: '1',
+      email: 'test@test.com',
+    });
   });
 
   it('refresh should return new access_token', () => {
