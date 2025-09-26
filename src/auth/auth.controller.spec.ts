@@ -28,6 +28,7 @@ describe('AuthController', () => {
     register: jest.fn(),
     me: jest.fn(),
     forgotPassword: jest.fn(),
+    resetPassword: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -195,5 +196,23 @@ describe('AuthController', () => {
     });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.forgotPassword).toHaveBeenCalledWith('user@test.com');
+  });
+  it('resetPassword should call service and return message', async () => {
+    const body = { token: 'valid-token', nouveauMotDePasse: 'new-password' };
+
+    (authService.resetPassword as jest.Mock).mockResolvedValue({
+      message: 'Mot de passe réinitialisé avec succès',
+    });
+
+    const result = await controller.resetPassword(body);
+
+    expect(result).toEqual({
+      message: 'Mot de passe réinitialisé avec succès',
+    });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.resetPassword).toHaveBeenCalledWith(
+      'valid-token',
+      'new-password',
+    );
   });
 });

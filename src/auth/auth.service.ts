@@ -161,4 +161,44 @@ export class AuthService {
         'Si cet email existe, un message de réinitialisation a été envoyé.',
     };
   }
+  // src/auth/auth.service.ts
+
+  async resetPassword(token: string, nouveauMotDePasse: string) {
+    try {
+      // Vérifie et décode le token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload = this.jwtService.verify(token);
+
+      const user = await this.prisma.utilisateur.findUnique({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        where: { id: payload.sub },
+      });
+
+      if (
+        !user ||
+        user.resetPasswordToken !== token ||
+        !user.resetPasswordExpires ||
+        user.resetPasswordExpires < new Date()
+      ) {
+        throw new UnauthorizedException('Lien invalide ou expiré');
+      }
+
+      // Hash du nouveau mot de passe
+      const hashedPassword = await bcrypt.hash(nouveauMotDePasse, 10);
+
+      await this.prisma.utilisateur.update({
+        where: { id: user.id },
+        data: {
+          motDePasse: hashedPassword,
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
+        },
+      });
+
+      return { message: 'Mot de passe réinitialisé avec succès' };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      throw new UnauthorizedException('Lien invalide ou expiré');
+    }
+  }
 }

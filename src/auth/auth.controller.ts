@@ -5,6 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -53,5 +54,10 @@ export class AuthController {
   @Post('forgot-password')
   async forgotPassword(@Body() body: ForgotPasswordDto) {
     return this.authService.forgotPassword(body.email);
+  }
+  //reset password
+  @Post('reset-password')
+  async resetPassword(@Body() body: ResetPasswordDto) {
+    return this.authService.resetPassword(body.token, body.nouveauMotDePasse);
   }
 }

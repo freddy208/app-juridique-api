@@ -3,7 +3,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { RoleUtilisateur } from '../enums/role-utilisateur.enum';
 import { MailService } from '../mail/mail.service';
 
@@ -277,6 +281,80 @@ describe('AuthService', () => {
       });
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mailService.sendMail).not.toHaveBeenCalled();
+    });
+  });
+  //reset password
+  describe('resetPassword', () => {
+    it('should reset password successfully with valid token', async () => {
+      const token = 'valid-token';
+      const hashedPassword = await bcrypt.hash('old-password', 10);
+
+      const user = {
+        id: '1',
+        email: 'user@test.com',
+        prenom: 'John',
+        motDePasse: hashedPassword,
+        resetPasswordToken: token,
+        resetPasswordExpires: new Date(Date.now() + 1000 * 60 * 15),
+      };
+
+      (jwtService.verify as jest.Mock).mockReturnValue({
+        sub: '1',
+        email: 'user@test.com',
+      });
+      (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(user);
+      (prisma.utilisateur.update as jest.Mock).mockResolvedValue(true);
+
+      const result = await service.resetPassword(token, 'new-password');
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.utilisateur.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          motDePasse: expect.any(String),
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
+        }),
+      });
+      expect(result).toEqual({
+        message: 'Mot de passe réinitialisé avec succès',
+      });
+    });
+
+    it('should throw UnauthorizedException if token is expired', async () => {
+      const token = 'expired-token';
+      const user = {
+        id: '1',
+        email: 'user@test.com',
+        resetPasswordToken: token,
+        resetPasswordExpires: new Date(Date.now() - 1000), // expiré
+      };
+
+      (jwtService.verify as jest.Mock).mockReturnValue({
+        sub: '1',
+        email: 'user@test.com',
+      });
+      (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(user);
+
+      await expect(
+        service.resetPassword(token, 'new-password'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException if user not found', async () => {
+      const token = 'token-without-user';
+
+      (jwtService.verify as jest.Mock).mockReturnValue({
+        sub: '2',
+        email: 'unknown@test.com',
+      });
+      (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword(token, 'new-password'),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });
