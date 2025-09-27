@@ -6,11 +6,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { MailService } from '../mail/mail.service';
+import { ConfigModule } from '@nestjs/config'; // <== ajouté
 
 @Module({
   controllers: [AuthController],
   providers: [AuthService, PrismaService, JwtStrategy, MailService],
   imports: [
+    ConfigModule,
     JwtModule.register({
       secret: jwtConstants.secret,
     }),
