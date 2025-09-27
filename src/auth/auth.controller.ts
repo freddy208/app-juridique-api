@@ -29,7 +29,7 @@ export class AuthController {
   @Post('logout')
   async logout(@Req() req: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    return this.authService.logout({ id: req.user.sub, email: req.user.email });
+    return this.authService.logout({ id: req.user.id, email: req.user.email });
   }
 
   @ApiOperation({ summary: 'Rafraîchir le token JWT' })
