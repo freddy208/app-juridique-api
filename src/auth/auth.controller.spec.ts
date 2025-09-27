@@ -96,7 +96,7 @@ describe('AuthController', () => {
     });
 
     const mockReq = {
-      user: { sub: '1', email: 'test@test.com' },
+      user: { id: '1', email: 'test@test.com' },
     };
 
     const result = await controller.logout(mockReq as any);
