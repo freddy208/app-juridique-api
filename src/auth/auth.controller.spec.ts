@@ -109,24 +109,23 @@ describe('AuthController', () => {
     });
   });
 
-  it('refresh should return new access_token', () => {
-    const mockReq = {
-      user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
-    };
+  it('refresh should return new access_token', async () => {
+    const body = { userId: '1', refreshToken: 'valid-refresh-token' };
 
-    (authService.refreshToken as jest.Mock).mockReturnValue({
+    (authService.refreshToken as jest.Mock).mockResolvedValue({
       access_token: 'new-access-token',
     });
 
-    const result = controller.refresh(mockReq as any);
+    const result = await controller.refresh(body);
+
     expect(result).toEqual({ access_token: 'new-access-token' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.refreshToken).toHaveBeenCalledWith({
-      id: '1',
-      email: 'test@test.com',
-      role: 'ADMIN',
-    });
+    expect(authService.refreshToken).toHaveBeenCalledWith(
+      '1',
+      'valid-refresh-token',
+    );
   });
+
   it('register should create a new user and return tokens', async () => {
     const registerDto: RegisterDto = {
       prenom: 'Jean',

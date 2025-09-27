@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import { RoleUtilisateur as PrismaRoleUtilisateur } from '../../generated/prisma';
 import { IUser, IRegisterDto } from './interfaces/user.interface';
 import { MailService } from '../mail/mail.service';
+import { jwtConstants } from './constants';
 
 @Injectable()
 export class AuthService {
@@ -49,9 +50,27 @@ export class AuthService {
     return { access_token, refresh_token };
   }
 
-  refreshToken(user: IUser) {
+  async refreshToken(userId: string, refreshToken: string) {
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || user.refreshToken !== refreshToken) {
+      throw new UnauthorizedException(
+        'Refresh token invalide ou utilisateur introuvable',
+      );
+    }
+
+    try {
+      this.jwtService.verify(refreshToken, { secret: jwtConstants.secret });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      throw new UnauthorizedException('Refresh token expiré ou invalide');
+    }
+
     const payload = { sub: user.id, email: user.email, role: user.role };
     const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
+
     return { access_token };
   }
 

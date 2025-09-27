@@ -121,21 +121,37 @@ describe('AuthService', () => {
     expect(result).toEqual({ message: 'Utilisateur 1 déconnecté avec succès' });
   });
 
-  it('should return new access_token on refreshToken', () => {
-    const user = {
+  it('should return new access_token on refreshToken', async () => {
+    const userId = '1';
+    const refreshToken = 'valid-refresh-token';
+    const fakeUserFromDb = {
       id: '1',
       email: 'test@test.com',
       role: RoleUtilisateur.ADMIN,
+      refreshToken,
     };
-    (jwtService.sign as jest.Mock).mockReturnValue('new-fake-access-token');
 
-    const result = service.refreshToken(user);
+    (prisma.utilisateur.findUnique as jest.Mock).mockResolvedValue(
+      fakeUserFromDb,
+    );
+    (jwtService.sign as jest.Mock).mockReturnValue('new-fake-access-token');
+    (jwtService.verify as jest.Mock).mockReturnValue({
+      sub: '1',
+      email: 'test@test.com',
+    });
+
+    const result = await service.refreshToken(userId, refreshToken);
+
     expect(result).toEqual({ access_token: 'new-fake-access-token' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(jwtService.sign).toHaveBeenCalledWith(
-      { sub: '1', email: 'test@test.com', role: RoleUtilisateur.ADMIN },
-      { expiresIn: '15m' },
-    );
+    expect(prisma.utilisateur.findUnique).toHaveBeenCalledWith({
+      where: { id: userId },
+    });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(jwtService.verify).toHaveBeenCalledWith(refreshToken, {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      secret: expect.any(String),
+    });
   });
 
   it('should throw ConflictException if user already exists', async () => {

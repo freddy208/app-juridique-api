@@ -3,7 +3,6 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -33,11 +32,9 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Rafraîchir le token JWT' })
-  @UseGuards(RefreshTokenGuard)
   @Post('refresh')
-  refresh(@Req() req: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    return this.authService.refreshToken(req.user);
+  refresh(@Body() body: { userId: string; refreshToken: string }) {
+    return this.authService.refreshToken(body.userId, body.refreshToken);
   }
 
   @ApiOperation({ summary: 'Créer un nouvel utilisateur (admin seulement)' })
