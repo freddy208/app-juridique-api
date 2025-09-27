@@ -22,12 +22,14 @@ export class AuthService {
 
   async validateUser(email: string, motDePasse: string) {
     const user = await this.prisma.utilisateur.findUnique({ where: { email } });
-    if (!user)
+    if (!user) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
+    }
 
     const passwordValid = await bcrypt.compare(motDePasse, user.motDePasse);
-    if (!passwordValid)
+    if (!passwordValid) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { motDePasse: _, ...result } = user;

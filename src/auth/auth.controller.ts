@@ -55,7 +55,7 @@ export class AuthController {
   @Get('me')
   async me(@Req() req: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    return this.authService.me(req.user.sub);
+    return this.authService.me(req.user.id);
   }
 
   @ApiOperation({
