@@ -46,7 +46,7 @@ jobs:
         run: npx prisma generate
 
       - name: Run migrations
-        run: npx prisma db push
+        run: npx prisma migrate deploy
 
       - name: Lint
         run: npm run lint
@@ -78,7 +78,7 @@ jobs:
         run: npx prisma generate
 
       - name: Run migrations on Supabase
-        run: npx prisma migrate deploy
+        run: npx prisma db push
 
       - name: Build project
         run: npm run build
