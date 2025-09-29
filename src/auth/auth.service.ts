@@ -21,7 +21,7 @@ export class AuthService {
     private mailService: MailService, // injection
   ) {}
 
-  async validateUser(email: string, motDePasse: string) {
+  async validateUser(email: string, motDePasse: string): Promise<IUser> {
     const user = await this.prisma.utilisateur.findUnique({ where: { email } });
     if (!user) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
@@ -32,9 +32,14 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { motDePasse: _, ...result } = user;
-    return result;
+    // ✅ on retourne un objet propre, conforme à IUser
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      prenom: user.prenom,
+      nom: user.nom,
+    };
   }
 
   async login(user: IUser) {
