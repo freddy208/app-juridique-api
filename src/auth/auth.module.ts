@@ -6,7 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { MailService } from '../mail/mail.service';
-import { ConfigModule } from '@nestjs/config'; // <== ajouté
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   controllers: [AuthController],
