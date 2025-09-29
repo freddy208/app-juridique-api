@@ -12,7 +12,9 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [AuthController],
   providers: [AuthService, PrismaService, JwtStrategy, MailService],
   imports: [
-    ConfigModule,
+    ConfigModule.forRoot({
+      isGlobal: true, // rend les variables d'environnement accessibles partout
+    }),
     JwtModule.register({
       secret: jwtConstants.secret,
     }),

@@ -171,6 +171,17 @@ export class AuthService {
       <p>Merci,<br/>Cabinet Juridix Consulting</p>
     `;
 
+    try {
+      await this.mailService.sendMail(
+        user.email,
+        'Réinitialisation de votre mot de passe',
+        html,
+      );
+    } catch (err) {
+      // Log si besoin — mais NE PAS relancer
+      console.error('Erreur envoi mail (ignored):', err);
+    }
+
     await this.mailService.sendMail(
       user.email,
       'Réinitialisation de votre mot de passe',
