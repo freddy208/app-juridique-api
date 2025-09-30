@@ -187,12 +187,6 @@ export class AuthService {
       console.error('Erreur envoi mail (ignored):', err);
     }
 
-    await this.mailService.sendMail(
-      user.email,
-      'Réinitialisation de votre mot de passe',
-      html,
-    );
-
     return {
       message:
         'Si cet email existe, un message de réinitialisation a été envoyé.',

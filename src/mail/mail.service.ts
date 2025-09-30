@@ -2,7 +2,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import { google } from 'googleapis';
 
 @Injectable()
 export class MailService {
@@ -11,33 +10,22 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
 
   constructor(private configService: ConfigService) {
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
-    const refreshToken = this.configService.get<string>('GOOGLE_REFRESH_TOKEN');
-    const user = this.configService.get<string>('SMTP_USER');
+    const host = this.configService.get<string>('SMTP_HOST')!;
+    const port = parseInt(this.configService.get<string>('SMTP_PORT')!, 10);
+    const user = this.configService.get<string>('SMTP_USER')!;
+    const pass = this.configService.get<string>('SMTP_PASS')!;
 
-    if (!clientId || !clientSecret || !refreshToken || !user) {
-      this.logger.warn(
-        '⚠️ Google OAuth2 credentials not set. Emails disabled.',
-      );
+    if (!host || !port || !user || !pass) {
+      this.logger.warn('⚠️ SMTP credentials not set. Emails disabled.');
       return;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    oAuth2Client.setCredentials({ refresh_token: refreshToken });
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        type: 'OAuth2',
-        user,
-        clientId,
-        clientSecret,
-        refreshToken,
-      },
+      host,
+      port,
+      secure: port === 465, // true pour SSL, false pour TLS/STARTTLS
+      auth: { user, pass },
     });
   }
 
