@@ -4,34 +4,33 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DIRECT_URL")
 }
 
 model Utilisateur {
-  id              String                @id @default(uuid())
-  prenom          String
-  nom             String
-  email           String                @unique
-  motDePasse      String
-  role            RoleUtilisateur       @default(ASSISTANT)
-  statut          StatutUtilisateur     @default(ACTIF)
-  creeLe          DateTime              @default(now())
-  modifieLe       DateTime              @updatedAt
-  refreshToken    String?
-  resetPasswordToken  String?  
-  resetPasswordExpires DateTime? 
-  archives        Archive[]
-  correspondances Correspondance[]
-  documents       Document[]            @relation("DocumentsTeleverses")
-  dossiers        Dossier[]             @relation("DossierResponsable")
-  evenements      EvenementCalendrier[]
-  journauxAudit   JournalAudit[]
-  messages        MessageChat[]
-  notes           Note[]
-  tachesAssignees Tache[]               @relation("AssigneTache")
-  tachesCreees    Tache[]               @relation("CreateurTache")
+  id                   String                @id @default(uuid())
+  prenom               String
+  nom                  String
+  email                String                @unique
+  motDePasse           String
+  role                 RoleUtilisateur       @default(ASSISTANT)
+  statut               StatutUtilisateur     @default(ACTIF)
+  creeLe               DateTime              @default(now())
+  modifieLe            DateTime              @updatedAt
+  refreshToken         String?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  archives             Archive[]
+  correspondances      Correspondance[]
+  documents            Document[]            @relation("DocumentsTeleverses")
+  dossiers             Dossier[]             @relation("DossierResponsable")
+  evenements           EvenementCalendrier[]
+  journauxAudit        JournalAudit[]
+  messages             MessageChat[]
+  notes                Note[]
+  tachesAssignees      Tache[]               @relation("AssigneTache")
+  tachesCreees         Tache[]               @relation("CreateurTache")
 }
 
 model Client {
