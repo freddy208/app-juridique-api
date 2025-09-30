@@ -10,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL, // ⚡ Utiliser DIRECT_URL
+      url: process.env.DIRECT_URL, // ⚡ Utiliser DIRECT_URL
     },
   },
 });
