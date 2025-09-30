@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('Auth') // Regroupe tous les endpoints de ce controller dans Swagger
 @Controller('auth')
@@ -33,7 +34,7 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Rafraîchir le token JWT' })
   @Post('refresh')
-  refresh(@Body() body: { userId: string; refreshToken: string }) {
+  async refresh(@Body() body: RefreshTokenDto) {
     return this.authService.refreshToken(body.userId, body.refreshToken);
   }
 
