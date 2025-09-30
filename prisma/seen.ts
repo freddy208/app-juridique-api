@@ -4,7 +4,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 console.log('DIRECT_URL:', process.env.DIRECT_URL);
 
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
+
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient({

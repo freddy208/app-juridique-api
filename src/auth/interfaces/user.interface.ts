@@ -1,4 +1,4 @@
-import { RoleUtilisateur as PrismaRoleUtilisateur } from '../../../generated/prisma';
+import { RoleUtilisateur as PrismaRoleUtilisateur } from '@prisma/client';
 
 export interface IUser {
   id: string;

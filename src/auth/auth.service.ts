@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { RoleUtilisateur as PrismaRoleUtilisateur } from '../../generated/prisma';
+import { RoleUtilisateur as PrismaRoleUtilisateur } from '@prisma/client';
 import { IUser, IRegisterDto } from './interfaces/user.interface';
 import { MailService } from '../mail/mail.service';
 import { jwtConstants } from './constants';
