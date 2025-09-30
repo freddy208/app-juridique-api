@@ -2,7 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { google } from 'googleapis';
 
 @Injectable()
 export class MailService {
@@ -11,37 +11,39 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
 
   constructor(private configService: ConfigService) {
-    const host =
-      this.configService.get<string>('SMTP_HOST') ?? 'smtp.gmail.com';
-    const port = Number(this.configService.get<string>('SMTP_PORT') ?? '465');
-    const secureEnv = this.configService.get<string>('SMTP_SECURE');
-    const secure = secureEnv ? secureEnv === 'true' : port === 465;
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const refreshToken = this.configService.get<string>('GOOGLE_REFRESH_TOKEN');
     const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASS');
 
-    if (!user || !pass) {
+    if (!clientId || !clientSecret || !refreshToken || !user) {
       this.logger.warn(
-        'SMTP_USER or SMTP_PASS not defined. Mail sending disabled.',
+        '⚠️ Google OAuth2 credentials not set. Emails disabled.',
       );
       return;
     }
 
-    const options: SMTPTransport.Options = {
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-    };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    oAuth2Client.setCredentials({ refresh_token: refreshToken });
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    this.transporter = nodemailer.createTransport(options);
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user,
+        clientId,
+        clientSecret,
+        refreshToken,
+      },
+    });
   }
 
   async sendMail(to: string, subject: string, html: string) {
     if (!this.transporter) {
-      this.logger.warn(
-        `Mail skipped (transporter not configured). To=${to} Subject=${subject}`,
-      );
+      this.logger.warn(`Mail skipped (transporter not configured). To=${to}`);
       return;
     }
 
@@ -54,12 +56,10 @@ export class MailService {
         html,
       });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      this.logger.log(`Mail sent: ${info?.messageId ?? '(no messageId)'}`);
+      this.logger.log(`📧 Mail sent: ${info?.messageId ?? '(no id)'}`);
     } catch (error) {
-      // NE PAS relancer l'erreur -> on ne veut pas faire planter l'API
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      this.logger.error('Failed to send email', error?.stack ?? error);
-      // on peut aussi stocker l'erreur quelque part si besoin
+      this.logger.error('❌ Failed to send email', error?.stack ?? error);
     }
   }
 }
