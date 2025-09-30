@@ -78,7 +78,7 @@ jobs:
         run: npx prisma generate
 
       - name: Run migrations on Supabase
-        run: npx prisma db push
+        run: npx prisma migrate deploy
 
       - name: Build project
         run: npm run build
