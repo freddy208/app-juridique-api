@@ -278,4 +278,58 @@ describe('UtilisateursService', () => {
       );
     });
   });
+  describe('softDelete', () => {
+    const id = '1';
+    const mockUser = {
+      id,
+      prenom: 'John',
+      nom: 'Doe',
+      email: 'john@example.com',
+      role: 'ASSISTANT',
+      statut: 'ACTIF',
+      creeLe: new Date(),
+      modifieLe: new Date(),
+    };
+
+    it('should soft delete a user successfully', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValueOnce(mockUser);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      mockPrisma.utilisateur.update.mockImplementation((args) => ({
+        ...mockUser,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        ...args.data,
+      }));
+
+      const result = await service.softDelete(id);
+
+      expect(mockPrisma.utilisateur.findUnique).toHaveBeenCalledWith({
+        where: { id },
+      });
+      expect(mockPrisma.utilisateur.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id },
+          data: { statut: 'INACTIF' },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          select: expect.any(Object),
+        }),
+      );
+      expect(result.statut).toBe('INACTIF');
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue(null);
+      await expect(service.softDelete('non-existent-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw ConflictException if user is already INACTIF', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue({
+        ...mockUser,
+        statut: 'INACTIF',
+      });
+
+      await expect(service.softDelete(id)).rejects.toThrow(ConflictException);
+    });
+  });
 });

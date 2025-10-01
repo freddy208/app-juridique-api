@@ -8,6 +8,7 @@ import {
   Body,
   Put,
   Patch,
+  Delete,
 } from '@nestjs/common';
 import { UtilisateursService } from './utilisateurs.service';
 import { FilterUsersDto } from './dto/filter-users.dto';
@@ -78,5 +79,15 @@ export class UtilisateursController {
     @Body() dto: UpdateStatusDto,
   ): Promise<UserResponseDto> {
     return this.utilisateursService.updateStatus(id, dto.statut);
+  }
+  @ApiOperation({
+    summary: 'Supprimer un collaborateur (soft delete)',
+  })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiNotFoundResponse({ description: 'Collaborateur introuvable' })
+  @ApiConflictResponse({ description: 'Collaborateur déjà inactif' })
+  @Delete(':id')
+  async softDelete(@Param('id') id: string): Promise<UserResponseDto> {
+    return this.utilisateursService.softDelete(id);
   }
 }

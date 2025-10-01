@@ -161,4 +161,30 @@ export class UtilisateursService {
       },
     });
   }
+  async softDelete(id: string) {
+    const user = await this.prisma.utilisateur.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`Collaborateur avec id ${id} introuvable`);
+    }
+
+    if (user.statut === 'INACTIF') {
+      throw new ConflictException(`Le collaborateur est déjà désactivé`);
+    }
+
+    return this.prisma.utilisateur.update({
+      where: { id },
+      data: { statut: 'INACTIF' },
+      select: {
+        id: true,
+        prenom: true,
+        nom: true,
+        email: true,
+        role: true,
+        statut: true,
+        creeLe: true,
+        modifieLe: true,
+      },
+    });
+  }
 }

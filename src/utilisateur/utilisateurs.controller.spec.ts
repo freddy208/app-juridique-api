@@ -13,6 +13,7 @@ describe('UtilisateursController', () => {
     create: jest.Mock;
     update: jest.Mock; // ici c’est correct
     updateStatus: jest.Mock;
+    softDelete: jest.Mock;
   };
   const mockService: MockUtilisateurService = {
     findAll: jest.fn().mockResolvedValue([{ id: 1, nom: 'Test' }]),
@@ -20,6 +21,7 @@ describe('UtilisateursController', () => {
     create: jest.fn(),
     update: jest.fn(),
     updateStatus: jest.fn(),
+    softDelete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -178,6 +180,48 @@ describe('UtilisateursController', () => {
         .fn()
         .mockRejectedValue(new ConflictException());
       await expect(controller.updateStatus(id, dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+  });
+  describe('DELETE /users/:id', () => {
+    const id = '1';
+    const mockUser = {
+      id,
+      prenom: 'John',
+      nom: 'Doe',
+      email: 'john@example.com',
+      role: 'ASSISTANT',
+      statut: 'INACTIF',
+      creeLe: new Date(),
+      modifieLe: new Date(),
+    };
+
+    it('should call service.softDelete and return updated user', async () => {
+      mockService.softDelete = jest.fn().mockResolvedValue(mockUser);
+
+      const result = await controller.softDelete(id);
+
+      expect(mockService.softDelete).toHaveBeenCalledWith(id);
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should throw NotFoundException if service.softDelete throws it', async () => {
+      mockService.softDelete = jest
+        .fn()
+        .mockRejectedValue(new NotFoundException());
+
+      await expect(controller.softDelete(id)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw ConflictException if service.softDelete throws it', async () => {
+      mockService.softDelete = jest
+        .fn()
+        .mockRejectedValue(new ConflictException());
+
+      await expect(controller.softDelete(id)).rejects.toThrow(
         ConflictException,
       );
     });
