@@ -1,5 +1,12 @@
-// src/utilisateurs/utilisateurs.controller.ts
-import { Controller, Get, Query, UseGuards, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Param,
+  Post,
+  Body,
+} from '@nestjs/common';
 import { UtilisateursService } from './utilisateurs.service';
 import { FilterUsersDto } from './dto/filter-users.dto';
 import {
@@ -8,9 +15,12 @@ import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiNotFoundResponse,
+  ApiCreatedResponse,
+  ApiConflictResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserResponseDto } from './dto/user-response.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @ApiTags('Utilisateurs')
 @ApiBearerAuth('JWT-auth')
@@ -34,5 +44,13 @@ export class UtilisateursController {
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     return this.utilisateursService.findOne(id);
+  }
+
+  @ApiOperation({ summary: 'Créer un nouveau collaborateur' })
+  @ApiCreatedResponse({ type: UserResponseDto })
+  @ApiConflictResponse({ description: 'Email déjà utilisé' })
+  @Post()
+  async create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
+    return this.utilisateursService.create(dto);
   }
 }

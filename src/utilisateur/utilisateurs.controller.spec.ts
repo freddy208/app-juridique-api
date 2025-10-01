@@ -1,15 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UtilisateursController } from './utilisateurs.controller';
 import { UtilisateursService } from './utilisateurs.service';
+import { ConflictException } from '@nestjs/common';
 
 describe('UtilisateursController', () => {
   let controller: UtilisateursController;
   let service: UtilisateursService;
 
-  // ✅ Mock complet avec findAll et findOne
   const mockService: Partial<UtilisateursService> = {
     findAll: jest.fn().mockResolvedValue([{ id: 1, nom: 'Test' }]),
     findOne: jest.fn(),
+    create: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -45,7 +46,6 @@ describe('UtilisateursController', () => {
       modifieLe: new Date(),
     };
     (mockService.findOne as jest.Mock).mockResolvedValue(mockUser);
-
     const result = await controller.findOne('1');
     expect(mockService.findOne).toHaveBeenCalledWith('1');
     expect(result).toEqual(mockUser);
@@ -54,5 +54,44 @@ describe('UtilisateursController', () => {
   it('should throw if service.findOne throws', async () => {
     (mockService.findOne as jest.Mock).mockRejectedValue(new Error('DB error'));
     await expect(controller.findOne('1')).rejects.toThrow('DB error');
+  });
+
+  // ----------- Tests POST /users -----------
+  it('should call service.create and return new user', async () => {
+    const dto = {
+      prenom: 'Jane',
+      nom: 'Doe',
+      email: 'jane@example.com',
+      motDePasse: 'secret123',
+    };
+    const mockUser = {
+      id: '1',
+      prenom: 'Jane',
+      nom: 'Doe',
+      email: 'jane@example.com',
+      role: 'ASSISTANT',
+      statut: 'ACTIF',
+      creeLe: new Date(),
+      modifieLe: new Date(),
+    };
+    (mockService.create as jest.Mock).mockResolvedValue(mockUser);
+
+    const result = await controller.create(dto);
+    expect(mockService.create).toHaveBeenCalledWith(dto);
+    expect(result).toEqual(mockUser);
+  });
+
+  it('should throw ConflictException if email already exists', async () => {
+    const dto = {
+      prenom: 'Jane',
+      nom: 'Doe',
+      email: 'existing@example.com',
+      motDePasse: 'secret123',
+    };
+    (mockService.create as jest.Mock).mockRejectedValue(
+      new ConflictException('Email déjà utilisé'),
+    );
+
+    await expect(controller.create(dto)).rejects.toThrow(ConflictException);
   });
 });
