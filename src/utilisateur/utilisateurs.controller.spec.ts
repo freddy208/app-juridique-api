@@ -94,4 +94,43 @@ describe('UtilisateursController', () => {
 
     await expect(controller.create(dto)).rejects.toThrow(ConflictException);
   });
+  // Ajouter dans ton describe('UtilisateursController', ...)
+  it('should call service.update and return updated user', async () => {
+    const id = '1';
+    const dto = {
+      prenom: 'Updated',
+      nom: 'User',
+      email: 'updated@example.com',
+    };
+    const mockUser = {
+      id,
+      prenom: 'Updated',
+      nom: 'User',
+      email: 'updated@example.com',
+      role: 'ASSISTANT',
+      statut: 'ACTIF',
+      creeLe: new Date(),
+      modifieLe: new Date(),
+    };
+
+    (mockService.update as jest.Mock).mockResolvedValue(mockUser);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const result = await controller.update(id, dto as any);
+    expect(mockService.update).toHaveBeenCalledWith(id, dto);
+    expect(result).toEqual(mockUser);
+  });
+
+  it('should throw ConflictException if service.update throws it', async () => {
+    const id = '1';
+    const dto = { email: 'existing@example.com' };
+    (mockService.update as jest.Mock).mockRejectedValue(
+      new ConflictException('Email déjà utilisé'),
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    await expect(controller.update(id, dto as any)).rejects.toThrow(
+      ConflictException,
+    );
+  });
 });

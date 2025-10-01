@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Body,
+  Put,
 } from '@nestjs/common';
 import { UtilisateursService } from './utilisateurs.service';
 import { FilterUsersDto } from './dto/filter-users.dto';
@@ -21,6 +22,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserResponseDto } from './dto/user-response.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('Utilisateurs')
 @ApiBearerAuth('JWT-auth')
@@ -52,5 +54,16 @@ export class UtilisateursController {
   @Post()
   async create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
     return this.utilisateursService.create(dto);
+  }
+  @ApiOperation({ summary: 'Modifier un collaborateur par ID' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiNotFoundResponse({ description: 'Collaborateur introuvable' })
+  @ApiConflictResponse({ description: 'Email déjà utilisé' })
+  @Put(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.utilisateursService.update(id, dto);
   }
 }
