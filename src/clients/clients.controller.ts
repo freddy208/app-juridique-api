@@ -101,4 +101,18 @@ export class ClientsController {
       filters.take ?? 10,
     );
   }
+  @Get(':id/notes')
+  @ApiOperation({ summary: 'Lister les notes internes d’un client' })
+  @ApiParam({ name: 'id', description: 'ID du client', type: String })
+  async getNotes(
+    @Param('id') id: string,
+    @Query('skip') skip?: number,
+    @Query('take') take?: number,
+  ) {
+    return this.clientsService.findNotesByClient(
+      id,
+      Number(skip),
+      Number(take),
+    );
+  }
 }

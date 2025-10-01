@@ -218,4 +218,32 @@ export class ClientsService {
       orderBy: { creeLe: 'desc' },
     });
   }
+  // src/clients/clients.service.ts
+  async findNotesByClient(clientId: string, skip?: number, take?: number) {
+    // Vérifier si le client existe
+    const clientExists = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!clientExists) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 10;
+
+    return this.prisma.note.findMany({
+      where: { clientId },
+      skip: effectiveSkip,
+      take: effectiveTake,
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+        dossier: {
+          select: { id: true, numeroUnique: true, titre: true },
+        },
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+  }
 }

@@ -19,6 +19,7 @@ describe('ClientsController', () => {
     remove: jest.fn(),
     findDossiersByClient: jest.fn(),
     findDocumentsByClient: jest.fn(),
+    findNotesByClient: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -293,6 +294,60 @@ describe('ClientsController', () => {
         0,
         10,
       );
+    });
+  });
+  // ---------- getNotes tests ----------
+  describe('getNotes', () => {
+    it('should call service.findNotesByClient and return result', async () => {
+      const clientId = '1';
+      const mockNotes = [
+        {
+          id: 'n1',
+          contenu: 'Note 1',
+          clientId,
+          utilisateur: {
+            id: 'u1',
+            prenom: 'John',
+            nom: 'Doe',
+            email: 'john@example.com',
+          },
+          dossier: { id: 'd1', numeroUnique: 'DU-001', titre: 'Dossier 1' },
+        },
+      ];
+
+      (service.findNotesByClient as jest.Mock).mockResolvedValue(mockNotes);
+
+      const result = await controller.getNotes(clientId, 0, 10);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findNotesByClient).toHaveBeenCalledWith(clientId, 0, 10);
+      expect(result).toEqual(mockNotes);
+    });
+
+    it('should throw NotFoundException if service throws', async () => {
+      const clientId = '999';
+      (service.findNotesByClient as jest.Mock).mockRejectedValue(
+        new NotFoundException(),
+      );
+
+      await expect(controller.getNotes(clientId, 0, 10)).rejects.toThrow(
+        NotFoundException,
+      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findNotesByClient).toHaveBeenCalledWith(clientId, 0, 10);
+    });
+
+    it('should convert skip and take query params to number', async () => {
+      const clientId = '1';
+      const mockNotes: any[] = [];
+      (service.findNotesByClient as jest.Mock).mockResolvedValue(mockNotes);
+
+      // skip et take en string pour simuler query params
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      await controller.getNotes(clientId, '2' as any, '5' as any);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findNotesByClient).toHaveBeenCalledWith(clientId, 2, 5);
     });
   });
 });
