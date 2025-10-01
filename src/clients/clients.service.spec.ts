@@ -218,4 +218,44 @@ describe('ClientsService', () => {
       service.updateStatus('999', StatutClient.ACTIF),
     ).rejects.toThrow(NotFoundException);
   });
+  // ---------- remove (soft delete) tests ----------
+  it('should soft delete a client when found', async () => {
+    const id = '1';
+    const mockClient = {
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+      statut: StatutClient.INACTIF,
+      dossiers: [],
+      factures: [],
+    };
+
+    // Mock pour vérifier existence
+    (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+      statut: StatutClient.ACTIF,
+    });
+
+    (prisma.client.update as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await service.remove(id);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.findUnique).toHaveBeenCalledWith({ where: { id } });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.update).toHaveBeenCalledWith({
+      where: { id },
+      data: { statut: StatutClient.INACTIF },
+      include: { dossiers: true, factures: true },
+    });
+    expect(result).toEqual(mockClient);
+  });
+
+  it('should throw NotFoundException if client to remove not found', async () => {
+    (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.remove('999')).rejects.toThrow(NotFoundException);
+  });
 });

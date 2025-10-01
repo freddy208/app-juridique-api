@@ -15,6 +15,7 @@ describe('ClientsController', () => {
     create: jest.fn(),
     update: jest.fn(),
     updateStatus: jest.fn(),
+    remove: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -143,5 +144,34 @@ describe('ClientsController', () => {
     );
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(service.updateStatus).toHaveBeenCalledWith(id, body.statut);
+  });
+  // ---------- remove (soft delete) tests ----------
+  it('should call ClientsService.remove and return result', async () => {
+    const id = '1';
+    const mockClient = {
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+      statut: StatutClient.INACTIF,
+      dossiers: [],
+      factures: [],
+    };
+
+    (service.remove as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await controller.remove(id);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.remove).toHaveBeenCalledWith(id);
+    expect(result).toEqual(mockClient);
+  });
+
+  it('should throw NotFoundException if client to remove not found', async () => {
+    const id = '999';
+    (service.remove as jest.Mock).mockRejectedValue(new NotFoundException());
+
+    await expect(controller.remove(id)).rejects.toThrow(NotFoundException);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.remove).toHaveBeenCalledWith(id);
   });
 });

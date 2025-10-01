@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
-import { StatutClient } from '@prisma/client';
+import { Prisma, StatutClient } from '@prisma/client';
 
 @Injectable()
 export class ClientsService {
@@ -22,31 +22,37 @@ export class ClientsService {
       skip,
       take,
     } = filters;
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 10;
+
+    const where: Prisma.ClientWhereInput = {};
+
+    if (statut) {
+      where.statut = statut;
+    }
+    if (nomEntreprise) {
+      where.nomEntreprise = { contains: nomEntreprise, mode: 'insensitive' };
+    }
+    if (email) {
+      where.email = { contains: email, mode: 'insensitive' };
+    }
+    if (telephone) {
+      where.telephone = { contains: telephone, mode: 'insensitive' };
+    }
+    if (search) {
+      where.OR = [
+        { prenom: { contains: search, mode: 'insensitive' } },
+        { nom: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (typeDossier) {
+      where.dossiers = { some: { type: typeDossier } };
+    }
 
     return this.prisma.client.findMany({
-      skip,
-      take,
-      where: {
-        statut,
-        nomEntreprise: nomEntreprise
-          ? { contains: nomEntreprise, mode: 'insensitive' }
-          : undefined,
-        email: email ? { contains: email, mode: 'insensitive' } : undefined,
-        telephone: telephone
-          ? { contains: telephone, mode: 'insensitive' }
-          : undefined,
-        OR: search
-          ? [
-              { prenom: { contains: search, mode: 'insensitive' } },
-              { nom: { contains: search, mode: 'insensitive' } },
-            ]
-          : undefined,
-        dossiers: typeDossier
-          ? {
-              some: { type: typeDossier },
-            }
-          : undefined,
-      },
+      skip: effectiveSkip,
+      take: effectiveTake,
+      where,
       include: {
         dossiers: true,
         factures: true,
@@ -106,6 +112,20 @@ export class ClientsService {
     return this.prisma.client.update({
       where: { id },
       data: { statut },
+      include: { dossiers: true, factures: true },
+    });
+  }
+  // src/clients/clients.service.ts
+  async remove(id: string) {
+    const client = await this.prisma.client.findUnique({ where: { id } });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${id} introuvable`);
+    }
+
+    // Soft delete : on passe le statut à INACTIF
+    return this.prisma.client.update({
+      where: { id },
+      data: { statut: StatutClient.INACTIF },
       include: { dossiers: true, factures: true },
     });
   }

@@ -8,6 +8,7 @@ import {
   Put,
   Patch,
   Body,
+  Delete,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -62,5 +63,11 @@ export class ClientsController {
     @Body() body: UpdateClientStatusDto,
   ) {
     return this.clientsService.updateStatus(id, body.statut);
+  }
+  @Delete(':id')
+  @ApiOperation({ summary: 'Supprimer un client (soft delete)' })
+  @ApiParam({ name: 'id', description: 'ID du client', type: String })
+  async remove(@Param('id') id: string) {
+    return this.clientsService.remove(id);
   }
 }
