@@ -4,6 +4,7 @@ import { ClientsService } from './clients.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { StatutClient } from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
+import { FilterDossierDto } from './dto/filter-dossier.dto';
 
 describe('ClientsController', () => {
   let controller: ClientsController;
@@ -179,6 +180,8 @@ describe('ClientsController', () => {
   describe('getDossiers', () => {
     it('should call service.findDossiersByClient and return result', async () => {
       const clientId = '1';
+      const filters: FilterDossierDto = new FilterDossierDto(); // ✅ valeurs par défaut (skip=0, take=10)
+
       const mockDossiers = [
         { id: 'd1', titre: 'Dossier 1', clientId },
         { id: 'd2', titre: 'Dossier 2', clientId },
@@ -187,7 +190,8 @@ describe('ClientsController', () => {
       (service.findDossiersByClient as jest.Mock).mockResolvedValue(
         mockDossiers,
       );
-      const result = await controller.getDossiers(clientId, undefined, 0, 10);
+
+      const result = await controller.getDossiers(clientId, filters);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findDossiersByClient).toHaveBeenCalledWith(
@@ -199,21 +203,19 @@ describe('ClientsController', () => {
       expect(result).toEqual(mockDossiers);
     });
 
-    it('should convert skip and take from string to number', async () => {
+    it('should use skip and take from filters', async () => {
       const clientId = '1';
+      const filters: FilterDossierDto = {
+        skip: 5,
+        take: 15,
+      } as FilterDossierDto; // ✅ pagination custom
       const mockDossiers: any[] = [];
 
       (service.findDossiersByClient as jest.Mock).mockResolvedValue(
         mockDossiers,
       );
-      const result = await controller.getDossiers(
-        clientId,
-        undefined,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        '5' as any,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        '15' as any,
-      );
+
+      const result = await controller.getDossiers(clientId, filters);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findDossiersByClient).toHaveBeenCalledWith(
@@ -227,20 +229,22 @@ describe('ClientsController', () => {
 
     it('should throw NotFoundException if service throws', async () => {
       const clientId = '999';
+      const filters: FilterDossierDto = new FilterDossierDto(); // ✅ valeurs par défaut
+
       (service.findDossiersByClient as jest.Mock).mockRejectedValue(
         new NotFoundException(),
       );
 
-      await expect(controller.getDossiers(clientId)).rejects.toThrow(
+      await expect(controller.getDossiers(clientId, filters)).rejects.toThrow(
         NotFoundException,
       );
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findDossiersByClient).toHaveBeenCalledWith(
         clientId,
-        undefined, // statutDossier
-        0, // skip par défaut
-        10, // take par défaut
+        undefined,
+        0,
+        10,
       );
     });
   });
