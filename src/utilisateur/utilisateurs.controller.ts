@@ -1,4 +1,5 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+// src/utilisateurs/utilisateurs.controller.ts
+import { Controller, Get, Query, UseGuards, Param } from '@nestjs/common';
 import { UtilisateursService } from './utilisateurs.service';
 import { FilterUsersDto } from './dto/filter-users.dto';
 import {
@@ -6,6 +7,7 @@ import {
   ApiOperation,
   ApiBearerAuth,
   ApiOkResponse,
+  ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -24,5 +26,13 @@ export class UtilisateursController {
   @Get()
   async findAll(@Query() filter: FilterUsersDto): Promise<UserResponseDto[]> {
     return this.utilisateursService.findAll(filter);
+  }
+
+  @ApiOperation({ summary: 'Détails d’un collaborateur par ID' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiNotFoundResponse({ description: 'Collaborateur introuvable' })
+  @Get(':id')
+  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
+    return this.utilisateursService.findOne(id);
   }
 }

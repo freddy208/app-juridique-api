@@ -1,5 +1,5 @@
 // src/utilisateurs/utilisateurs.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { FilterUsersDto } from './dto/filter-users.dto';
 import { Prisma } from '@prisma/client';
@@ -33,5 +33,27 @@ export class UtilisateursService {
       },
       orderBy: { creeLe: 'desc' },
     });
+  }
+
+  async findOne(id: string) {
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        prenom: true,
+        nom: true,
+        email: true,
+        role: true,
+        statut: true,
+        creeLe: true,
+        modifieLe: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Collaborateur avec id ${id} introuvable`);
+    }
+
+    return user;
   }
 }
