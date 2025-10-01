@@ -80,9 +80,8 @@ export class ClientsController {
     @Query('skip') skip?: number,
     @Query('take') take?: number,
   ) {
-    // Convertir skip/take en number si fournis en query string
-    const skipNum = skip !== undefined ? Number(skip) : undefined;
-    const takeNum = take !== undefined ? Number(take) : undefined;
+    const skipNum = skip !== undefined ? Number(skip) : 0; // valeur par défaut
+    const takeNum = take !== undefined ? Number(take) : 10; // valeur par défaut
 
     return this.clientsService.findDossiersByClient(
       id,

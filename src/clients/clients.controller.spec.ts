@@ -234,11 +234,13 @@ describe('ClientsController', () => {
       await expect(controller.getDossiers(clientId)).rejects.toThrow(
         NotFoundException,
       );
+
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findDossiersByClient).toHaveBeenCalledWith(
         clientId,
-        undefined,
-        undefined,
+        undefined, // statutDossier
+        0, // skip par défaut
+        10, // take par défaut
       );
     });
   });
