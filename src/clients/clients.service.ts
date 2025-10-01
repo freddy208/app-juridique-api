@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
+import { CreateClientDto } from './dto/create-client.dto';
 
 @Injectable()
 export class ClientsService {
@@ -66,5 +67,14 @@ export class ClientsService {
     }
 
     return client;
+  }
+  async create(data: CreateClientDto) {
+    return await this.prisma.client.create({
+      data,
+      include: {
+        dossiers: true,
+        factures: true,
+      },
+    });
   }
 }

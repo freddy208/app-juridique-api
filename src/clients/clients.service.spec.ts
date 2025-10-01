@@ -13,6 +13,7 @@ describe('ClientsService', () => {
     client: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
   };
 
@@ -108,5 +109,28 @@ describe('ClientsService', () => {
       where: { id: '999' },
       include: { dossiers: true, factures: true },
     });
+  });
+  // ---------- create tests ----------
+  it('should create a new client', async () => {
+    const createDto = {
+      prenom: 'Jean',
+      nom: 'Dupont',
+      email: 'jean@example.com',
+      telephone: '123456789',
+      nomEntreprise: 'Dupont SARL',
+      adresse: 'Douala',
+    };
+
+    const mockClient = { id: '1', ...createDto, dossiers: [], factures: [] };
+    (prisma.client.create as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await service.create(createDto);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.create).toHaveBeenCalledWith({
+      data: createDto,
+      include: { dossiers: true, factures: true },
+    });
+    expect(result).toEqual(mockClient);
   });
 });

@@ -12,6 +12,7 @@ describe('ClientsController', () => {
   const mockClientsService = {
     findAll: jest.fn(),
     findOne: jest.fn(),
+    create: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -64,5 +65,25 @@ describe('ClientsController', () => {
     await expect(controller.findOne('999')).rejects.toThrow(NotFoundException);
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(service.findOne).toHaveBeenCalledWith('999');
+  });
+  // ---------- create tests ----------
+  it('should call ClientsService.create and return result', async () => {
+    const createDto = {
+      prenom: 'Jean',
+      nom: 'Dupont',
+      email: 'jean@example.com',
+      telephone: '123456789',
+      nomEntreprise: 'Dupont SARL',
+      adresse: 'Douala',
+    };
+
+    const mockClient = { id: '1', ...createDto, dossiers: [], factures: [] };
+    (service.create as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await controller.create(createDto);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.create).toHaveBeenCalledWith(createDto);
+    expect(result).toEqual(mockClient);
   });
 });
