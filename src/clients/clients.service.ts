@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
-import { Prisma, StatutClient } from '@prisma/client';
+import { Prisma, StatutClient, StatutDossier } from '@prisma/client';
 
 @Injectable()
 export class ClientsService {
@@ -19,9 +19,11 @@ export class ClientsService {
       email,
       telephone,
       typeDossier,
+      statutDossier, // Nouveau paramètre pour filtrer les dossiers
       skip,
       take,
     } = filters;
+
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
 
@@ -54,7 +56,7 @@ export class ClientsService {
       take: effectiveTake,
       where,
       include: {
-        dossiers: true,
+        dossiers: statutDossier ? { where: { statut: statutDossier } } : true,
         factures: true,
       },
       orderBy: { creeLe: 'desc' },
@@ -127,6 +129,52 @@ export class ClientsService {
       where: { id },
       data: { statut: StatutClient.INACTIF },
       include: { dossiers: true, factures: true },
+    });
+  }
+  // src/clients/clients.service.ts
+
+  async findDossiersByClient(
+    clientId: string,
+    statutDossier?: StatutDossier,
+    skip?: number,
+    take?: number,
+  ) {
+    const clientExists = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!clientExists) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 10;
+
+    const where: Prisma.DossierWhereInput = { clientId };
+    if (statutDossier) {
+      where.statut = statutDossier;
+    }
+
+    return this.prisma.dossier.findMany({
+      where,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      include: {
+        contentieux: true,
+        contrat: true,
+        documents: true,
+        evenements: true,
+        factures: true,
+        immobilier: true,
+        messages: true,
+        sinistreCorporel: true,
+        sinistreMateriel: true,
+        sinistreMortel: true,
+        sport: true,
+        taches: true,
+        responsable: true,
+        client: true,
+      },
+      orderBy: { creeLe: 'desc' },
     });
   }
 }

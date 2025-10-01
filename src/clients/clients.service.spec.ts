@@ -258,4 +258,74 @@ describe('ClientsService', () => {
 
     await expect(service.remove('999')).rejects.toThrow(NotFoundException);
   });
+  // ---------- findDossiersByClient tests ----------
+  describe('findDossiersByClient', () => {
+    it('should return dossiers when client exists', async () => {
+      const clientId = '1';
+      const mockDossiers = [
+        { id: 'd1', titre: 'Dossier 1', clientId },
+        { id: 'd2', titre: 'Dossier 2', clientId },
+      ];
+
+      // Mock pour vérifier existence du client
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+        id: clientId,
+      });
+      // Mock findMany pour dossiers
+      (prisma.dossier.findMany as jest.Mock).mockResolvedValue(mockDossiers);
+      const result = await service.findDossiersByClient(
+        clientId,
+        undefined,
+        0,
+        10,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.client.findUnique).toHaveBeenCalledWith({
+        where: { id: clientId },
+      });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.dossier.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId },
+          skip: 0,
+          take: 10,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          include: expect.any(Object),
+        }),
+      );
+      expect(result).toEqual(mockDossiers);
+    });
+
+    it('should throw NotFoundException if client does not exist', async () => {
+      const clientId = '999';
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.findDossiersByClient(clientId)).rejects.toThrow(
+        NotFoundException,
+      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.client.findUnique).toHaveBeenCalledWith({
+        where: { id: clientId },
+      });
+    });
+
+    it('should use default skip and take if not provided', async () => {
+      const clientId = '1';
+      const mockDossiers: any[] = [];
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+        id: clientId,
+      });
+      (prisma.dossier.findMany as jest.Mock).mockResolvedValue(mockDossiers);
+
+      const result = await service.findDossiersByClient(clientId);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.dossier.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
+
+      expect(result).toEqual(mockDossiers);
+    });
+  });
 });

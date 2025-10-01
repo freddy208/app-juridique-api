@@ -16,6 +16,7 @@ describe('ClientsController', () => {
     update: jest.fn(),
     updateStatus: jest.fn(),
     remove: jest.fn(),
+    findDossiersByClient: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -173,5 +174,72 @@ describe('ClientsController', () => {
     await expect(controller.remove(id)).rejects.toThrow(NotFoundException);
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(service.remove).toHaveBeenCalledWith(id);
+  });
+  // ---------- getDossiers tests ----------
+  describe('getDossiers', () => {
+    it('should call service.findDossiersByClient and return result', async () => {
+      const clientId = '1';
+      const mockDossiers = [
+        { id: 'd1', titre: 'Dossier 1', clientId },
+        { id: 'd2', titre: 'Dossier 2', clientId },
+      ];
+
+      (service.findDossiersByClient as jest.Mock).mockResolvedValue(
+        mockDossiers,
+      );
+      const result = await controller.getDossiers(clientId, undefined, 0, 10);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findDossiersByClient).toHaveBeenCalledWith(
+        clientId,
+        undefined,
+        0,
+        10,
+      );
+      expect(result).toEqual(mockDossiers);
+    });
+
+    it('should convert skip and take from string to number', async () => {
+      const clientId = '1';
+      const mockDossiers: any[] = [];
+
+      (service.findDossiersByClient as jest.Mock).mockResolvedValue(
+        mockDossiers,
+      );
+      const result = await controller.getDossiers(
+        clientId,
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        '5' as any,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        '15' as any,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findDossiersByClient).toHaveBeenCalledWith(
+        clientId,
+        undefined,
+        5,
+        15,
+      );
+      expect(result).toEqual(mockDossiers);
+    });
+
+    it('should throw NotFoundException if service throws', async () => {
+      const clientId = '999';
+      (service.findDossiersByClient as jest.Mock).mockRejectedValue(
+        new NotFoundException(),
+      );
+
+      await expect(controller.getDossiers(clientId)).rejects.toThrow(
+        NotFoundException,
+      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findDossiersByClient).toHaveBeenCalledWith(
+        clientId,
+        undefined,
+        undefined,
+      );
+    });
   });
 });

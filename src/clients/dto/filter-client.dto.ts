@@ -1,8 +1,7 @@
-// src/clients/dto/filter-client.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
-import { StatutClient, TypeDossier } from '@prisma/client';
+import { StatutClient, TypeDossier, StatutDossier } from '@prisma/client'; // <-- ajouter StatutDossier
 
 export class FilterClientDto {
   @ApiPropertyOptional({
@@ -40,6 +39,15 @@ export class FilterClientDto {
   @IsOptional()
   @IsEnum(TypeDossier)
   typeDossier?: TypeDossier;
+
+  // ✅ Nouveau champ pour filtrer les dossiers par statut
+  @ApiPropertyOptional({
+    enum: StatutDossier,
+    description: 'Filtrer par statut des dossiers liés',
+  })
+  @IsOptional()
+  @IsEnum(StatutDossier)
+  statutDossier?: StatutDossier;
 
   @ApiPropertyOptional({ description: 'Pagination - skip' })
   @IsOptional()

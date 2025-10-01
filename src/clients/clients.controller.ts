@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { UpdateClientStatusDto } from './dto/update-client-status.dto';
+import { StatutDossier } from '@prisma/client';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -69,5 +70,25 @@ export class ClientsController {
   @ApiParam({ name: 'id', description: 'ID du client', type: String })
   async remove(@Param('id') id: string) {
     return this.clientsService.remove(id);
+  }
+  @Get(':id/dossiers')
+  @ApiOperation({ summary: 'Lister les dossiers d’un client' })
+  @ApiParam({ name: 'id', description: 'ID du client', type: String })
+  async getDossiers(
+    @Param('id') id: string,
+    @Query('statutDossier') statutDossier?: StatutDossier,
+    @Query('skip') skip?: number,
+    @Query('take') take?: number,
+  ) {
+    // Convertir skip/take en number si fournis en query string
+    const skipNum = skip !== undefined ? Number(skip) : undefined;
+    const takeNum = take !== undefined ? Number(take) : undefined;
+
+    return this.clientsService.findDossiersByClient(
+      id,
+      statutDossier,
+      skipNum,
+      takeNum,
+    );
   }
 }
