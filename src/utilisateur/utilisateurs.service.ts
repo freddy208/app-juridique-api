@@ -9,6 +9,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { TaskWithDetailsDto } from './dto/task-with-details.dto';
 
 @Injectable()
 export class UtilisateursService {
@@ -185,6 +186,41 @@ export class UtilisateursService {
         creeLe: true,
         modifieLe: true,
       },
+    });
+  }
+  async getTasksByUser(id: string): Promise<TaskWithDetailsDto[]> {
+    const user = await this.prisma.utilisateur.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`Collaborateur avec id ${id} introuvable`);
+    }
+
+    return this.prisma.tache.findMany({
+      where: { assigneeId: id },
+      select: {
+        id: true,
+        titre: true,
+        description: true,
+        dateLimite: true,
+        statut: true,
+        creeLe: true,
+        modifieLe: true,
+        dossier: {
+          select: {
+            id: true,
+            numeroUnique: true,
+            titre: true,
+            type: true,
+          },
+        },
+        createur: {
+          select: {
+            id: true,
+            prenom: true,
+            nom: true,
+          },
+        },
+      },
+      orderBy: { dateLimite: 'asc' },
     });
   }
 }

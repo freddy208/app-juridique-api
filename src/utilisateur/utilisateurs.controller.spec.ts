@@ -8,6 +8,7 @@ describe('UtilisateursController', () => {
   let service: UtilisateursService;
 
   type MockUtilisateurService = {
+    getTasksByUser: jest.Mock;
     findAll: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
@@ -22,6 +23,7 @@ describe('UtilisateursController', () => {
     update: jest.fn(),
     updateStatus: jest.fn(),
     softDelete: jest.fn(),
+    getTasksByUser: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -223,6 +225,46 @@ describe('UtilisateursController', () => {
 
       await expect(controller.softDelete(id)).rejects.toThrow(
         ConflictException,
+      );
+    });
+  });
+  describe('GET /users/:id/tasks', () => {
+    const userId = '1';
+    const dto = [
+      {
+        id: 't1',
+        titre: 'Task 1',
+        description: 'Desc 1',
+        dateLimite: new Date(),
+        statut: 'EN_COURS',
+        creeLe: new Date(),
+        modifieLe: new Date(),
+        createur: { id: '2', prenom: 'Jane', nom: 'Doe' },
+        dossier: {
+          id: 'd1',
+          numeroUnique: 'NUM123',
+          titre: 'Dossier 1',
+          type: 'TYPE_A',
+        },
+      },
+    ];
+
+    it('should return tasks for a user', async () => {
+      mockService.getTasksByUser = jest.fn().mockResolvedValue(dto);
+
+      const result = await controller.getTasksByUser(userId);
+
+      expect(mockService.getTasksByUser).toHaveBeenCalledWith(userId);
+      expect(result).toEqual(dto);
+    });
+
+    it('should throw NotFoundException if service throws', async () => {
+      mockService.getTasksByUser = jest
+        .fn()
+        .mockRejectedValue(new NotFoundException());
+
+      await expect(controller.getTasksByUser('non-existent')).rejects.toThrow(
+        NotFoundException,
       );
     });
   });

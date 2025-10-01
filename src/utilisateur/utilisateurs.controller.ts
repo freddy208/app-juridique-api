@@ -26,6 +26,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { TaskWithDetailsDto } from './dto/task-with-details.dto';
 
 @ApiTags('Utilisateurs')
 @ApiBearerAuth('JWT-auth')
@@ -89,5 +90,13 @@ export class UtilisateursController {
   @Delete(':id')
   async softDelete(@Param('id') id: string): Promise<UserResponseDto> {
     return this.utilisateursService.softDelete(id);
+  }
+
+  @ApiOperation({ summary: 'Récupérer les tâches d’un collaborateur par ID' })
+  @ApiOkResponse({ type: [TaskWithDetailsDto] })
+  @ApiNotFoundResponse({ description: 'Collaborateur introuvable' })
+  @Get(':id/tasks')
+  async getTasksByUser(@Param('id') id: string): Promise<TaskWithDetailsDto[]> {
+    return this.utilisateursService.getTasksByUser(id);
   }
 }

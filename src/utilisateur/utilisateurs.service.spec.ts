@@ -14,6 +14,9 @@ describe('UtilisateursService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    tache: {
+      findMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -330,6 +333,56 @@ describe('UtilisateursService', () => {
       });
 
       await expect(service.softDelete(id)).rejects.toThrow(ConflictException);
+    });
+  });
+  describe('getTasksByUser', () => {
+    const userId = '1';
+    const mockTasks = [
+      {
+        id: 't1',
+        titre: 'Task 1',
+        description: 'Desc 1',
+        dateLimite: new Date(),
+        statut: 'EN_COURS',
+        creeLe: new Date(),
+        modifieLe: new Date(),
+        createur: { id: '2', prenom: 'Jane', nom: 'Doe' },
+        dossier: {
+          id: 'd1',
+          numeroUnique: 'NUM123',
+          titre: 'Dossier 1',
+          type: 'TYPE_A',
+        },
+      },
+    ];
+
+    it('should return tasks assigned to a user', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue({ id: userId });
+      mockPrisma.tache = {
+        findMany: jest.fn().mockResolvedValue(mockTasks),
+      };
+
+      const result = await service.getTasksByUser(userId);
+
+      expect(mockPrisma.utilisateur.findUnique).toHaveBeenCalledWith({
+        where: { id: userId },
+      });
+      expect(mockPrisma.tache.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { assigneeId: userId },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          select: expect.any(Object),
+          orderBy: { dateLimite: 'asc' },
+        }),
+      );
+      expect(result).toEqual(mockTasks);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue(null);
+      await expect(service.getTasksByUser('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
