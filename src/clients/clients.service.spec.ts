@@ -175,4 +175,47 @@ describe('ClientsService', () => {
       NotFoundException,
     );
   });
+  // ---------- updateStatus tests ----------
+  it('should update client status when found', async () => {
+    const id = '1';
+    const statut: StatutClient = StatutClient.INACTIF;
+    const mockClient = {
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+      statut,
+      dossiers: [],
+      factures: [],
+    };
+
+    // Mock findUnique pour vérifier existence
+    (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+      statut: StatutClient.ACTIF,
+    });
+
+    (prisma.client.update as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await service.updateStatus(id, statut);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.findUnique).toHaveBeenCalledWith({ where: { id } });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.update).toHaveBeenCalledWith({
+      where: { id },
+      data: { statut },
+      include: { dossiers: true, factures: true },
+    });
+    expect(result).toEqual(mockClient);
+  });
+
+  it('should throw NotFoundException if client to update status not found', async () => {
+    (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.updateStatus('999', StatutClient.ACTIF),
+    ).rejects.toThrow(NotFoundException);
+  });
 });

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { StatutClient } from '@prisma/client';
 
 @Injectable()
 export class ClientsService {
@@ -93,6 +94,19 @@ export class ClientsService {
         dossiers: true,
         factures: true,
       },
+    });
+  }
+  // src/clients/clients.service.ts
+  async updateStatus(id: string, statut: StatutClient) {
+    const client = await this.prisma.client.findUnique({ where: { id } });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${id} introuvable`);
+    }
+
+    return this.prisma.client.update({
+      where: { id },
+      data: { statut },
+      include: { dossiers: true, factures: true },
     });
   }
 }

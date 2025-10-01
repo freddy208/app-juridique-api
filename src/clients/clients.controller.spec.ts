@@ -14,6 +14,7 @@ describe('ClientsController', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateStatus: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -106,5 +107,41 @@ describe('ClientsController', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(service.update).toHaveBeenCalledWith(id, updateDto);
     expect(result).toEqual(mockClient);
+  });
+  // ---------- updateStatus tests ----------
+  it('should call ClientsService.updateStatus and return result', async () => {
+    const id = '1';
+    const body = { statut: StatutClient.INACTIF };
+    const mockClient = {
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+      statut: StatutClient.INACTIF,
+      dossiers: [],
+      factures: [],
+    };
+
+    (service.updateStatus as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await controller.updateStatus(id, body);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.updateStatus).toHaveBeenCalledWith(id, body.statut);
+    expect(result).toEqual(mockClient);
+  });
+
+  it('should throw NotFoundException if client to update status not found', async () => {
+    const id = '999';
+    const body = { statut: StatutClient.ACTIF };
+
+    (service.updateStatus as jest.Mock).mockRejectedValue(
+      new NotFoundException(),
+    );
+
+    await expect(controller.updateStatus(id, body)).rejects.toThrow(
+      NotFoundException,
+    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.updateStatus).toHaveBeenCalledWith(id, body.statut);
   });
 });
