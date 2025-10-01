@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
+import { UpdateClientDto } from './dto/update-client.dto';
 
 @Injectable()
 export class ClientsService {
@@ -70,6 +71,23 @@ export class ClientsService {
   }
   async create(data: CreateClientDto) {
     return await this.prisma.client.create({
+      data,
+      include: {
+        dossiers: true,
+        factures: true,
+      },
+    });
+  }
+  async update(id: string, data: UpdateClientDto) {
+    // Vérifier si le client existe
+    const client = await this.prisma.client.findUnique({ where: { id } });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${id} introuvable`);
+    }
+
+    // Mise à jour
+    return this.prisma.client.update({
+      where: { id },
       data,
       include: {
         dossiers: true,

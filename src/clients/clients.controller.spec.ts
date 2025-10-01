@@ -13,6 +13,7 @@ describe('ClientsController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -84,6 +85,26 @@ describe('ClientsController', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(service.create).toHaveBeenCalledWith(createDto);
+    expect(result).toEqual(mockClient);
+  });
+  // ---------- update tests ----------
+  it('should call ClientsService.update and return result', async () => {
+    const id = '1';
+    const updateDto = { prenom: 'Jean-Marc' };
+    const mockClient = {
+      id,
+      prenom: 'Jean-Marc',
+      nom: 'Dupont',
+      dossiers: [],
+      factures: [],
+    };
+
+    (service.update as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await controller.update(id, updateDto);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.update).toHaveBeenCalledWith(id, updateDto);
     expect(result).toEqual(mockClient);
   });
 });

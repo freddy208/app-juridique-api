@@ -14,6 +14,7 @@ describe('ClientsService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -132,5 +133,46 @@ describe('ClientsService', () => {
       include: { dossiers: true, factures: true },
     });
     expect(result).toEqual(mockClient);
+  });
+  // ---------- update tests ----------
+  it('should update a client when found', async () => {
+    const id = '1';
+    const updateDto = { prenom: 'Jean-Marc' };
+    const mockClient = {
+      id,
+      prenom: 'Jean-Marc',
+      nom: 'Dupont',
+      dossiers: [],
+      factures: [],
+    };
+
+    // Mock findUnique pour vérifier existence
+    (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+      id,
+      prenom: 'Jean',
+      nom: 'Dupont',
+    });
+
+    (prisma.client.update as jest.Mock).mockResolvedValue(mockClient);
+
+    const result = await service.update(id, updateDto);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.findUnique).toHaveBeenCalledWith({ where: { id } });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(prisma.client.update).toHaveBeenCalledWith({
+      where: { id },
+      data: updateDto,
+      include: { dossiers: true, factures: true },
+    });
+    expect(result).toEqual(mockClient);
+  });
+
+  it('should throw NotFoundException if client to update not found', async () => {
+    (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.update('999', { prenom: 'Test' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
