@@ -12,6 +12,7 @@ describe('UtilisateursService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -128,5 +129,74 @@ describe('UtilisateursService', () => {
       email: dto.email,
     });
     await expect(service.create(dto)).rejects.toThrow(ConflictException);
+  });
+  // Ajouter dans ton describe('UtilisateursService', ...)
+  it('should update an existing user successfully', async () => {
+    const id = '1';
+    const dto = {
+      prenom: 'Updated',
+      nom: 'User',
+      email: 'updated@example.com',
+      motDePasse: 'newpass123',
+    };
+
+    // User existant
+    mockPrisma.utilisateur.findUnique
+      .mockResolvedValueOnce({ id, email: 'old@example.com' }) // pour vérifier existence
+      .mockResolvedValueOnce(null); // pour vérifier conflit email (aucun)
+
+    // Mock update
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    mockPrisma.utilisateur.update.mockImplementation((args) => ({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      ...args.data,
+      id,
+      creeLe: new Date(),
+      modifieLe: new Date(),
+    }));
+
+    const result = await service.update(id, dto);
+
+    expect(mockPrisma.utilisateur.findUnique).toHaveBeenCalledWith({
+      where: { id },
+    });
+    expect(mockPrisma.utilisateur.findUnique).toHaveBeenCalledWith({
+      where: { email: dto.email },
+    });
+    expect(mockPrisma.utilisateur.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({
+          prenom: dto.prenom,
+          nom: dto.nom,
+          email: dto.email,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          motDePasse: expect.any(String), // hashed
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        select: expect.any(Object),
+      }),
+    );
+    expect(result).toHaveProperty('id', id);
+    expect(result).toHaveProperty('prenom', 'Updated');
+  });
+
+  it('should throw NotFoundException if user to update does not exist', async () => {
+    mockPrisma.utilisateur.findUnique.mockResolvedValue(null);
+    await expect(
+      service.update('non-existent-id', { prenom: 'Test' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ConflictException if new email is already used by another user', async () => {
+    const id = '1';
+    mockPrisma.utilisateur.findUnique
+      .mockResolvedValueOnce({ id, email: 'old@example.com' }) // user exists
+      .mockResolvedValueOnce({ id: '2', email: 'existing@example.com' }); // email conflict
+
+    await expect(
+      service.update(id, { email: 'existing@example.com' }),
+    ).rejects.toThrow(ConflictException);
   });
 });
