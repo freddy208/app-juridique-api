@@ -289,6 +289,7 @@ describe('ClientsController', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findDocumentsByClient).toHaveBeenCalledWith(
         clientId,
+        undefined,
         0,
         10,
       );
