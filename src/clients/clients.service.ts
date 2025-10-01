@@ -1,5 +1,4 @@
-// src/clients/clients.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 
@@ -51,5 +50,21 @@ export class ClientsService {
       },
       orderBy: { creeLe: 'desc' },
     });
+  }
+
+  async findOne(id: string) {
+    const client = await this.prisma.client.findUnique({
+      where: { id },
+      include: {
+        dossiers: true,
+        factures: true,
+      },
+    });
+
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${id} introuvable`);
+    }
+
+    return client;
   }
 }
