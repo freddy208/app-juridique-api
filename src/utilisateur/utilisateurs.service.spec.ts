@@ -17,6 +17,9 @@ describe('UtilisateursService', () => {
     tache: {
       findMany: jest.fn(),
     },
+    dossier: {
+      findMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -383,6 +386,122 @@ describe('UtilisateursService', () => {
       await expect(service.getTasksByUser('non-existent')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+  describe('getDossiersByUser', () => {
+    const userId = '1';
+    const mockDossiers = [
+      {
+        id: 'd1',
+        numeroUnique: 'NUM123',
+        titre: 'Dossier 1',
+        type: 'TYPE_A',
+        statut: 'OUVERT',
+        creeLe: new Date(),
+        modifieLe: new Date(),
+        client: {
+          id: 'c1',
+          prenom: 'Alice',
+          nom: 'Dupont',
+          nomEntreprise: 'ABC SARL',
+        },
+      },
+      {
+        id: 'd2',
+        numeroUnique: 'NUM124',
+        titre: 'Dossier 2',
+        type: 'TYPE_B',
+        statut: 'EN_COURS',
+        creeLe: new Date(),
+        modifieLe: new Date(),
+        client: {
+          id: 'c2',
+          prenom: 'Bob',
+          nom: 'Martin',
+          nomEntreprise: 'XYZ SA',
+        },
+      },
+    ];
+
+    it('should return merged unique dossiers followed by the user', async () => {
+      // 1️⃣ Mock user exists
+      mockPrisma.utilisateur.findUnique.mockResolvedValue({ id: userId });
+
+      // 2️⃣ Mock dossiers dont l'utilisateur est responsable
+      mockPrisma.dossier.findMany.mockResolvedValue([mockDossiers[0]]);
+
+      // 3️⃣ Mock tâches assignées à l'utilisateur
+      mockPrisma.tache.findMany.mockResolvedValue([
+        { dossier: mockDossiers[1] },
+      ]);
+
+      const result = await service.getDossiersByUser(userId);
+
+      // ✅ Vérifications des appels Prisma
+      expect(mockPrisma.utilisateur.findUnique).toHaveBeenCalledWith({
+        where: { id: userId },
+      });
+      expect(mockPrisma.dossier.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { responsableId: userId } }),
+      );
+      expect(mockPrisma.tache.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { assigneeId: userId, dossierId: { not: null } },
+          select: {
+            dossier: {
+              select: {
+                id: true,
+                numeroUnique: true,
+                titre: true,
+                type: true,
+                statut: true,
+                creeLe: true,
+                modifieLe: true,
+                client: {
+                  select: {
+                    id: true,
+                    prenom: true,
+                    nom: true,
+                    nomEntreprise: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      );
+
+      // ✅ Résultat attendu : fusion unique des deux listes
+      expect(result).toEqual([mockDossiers[0], mockDossiers[1]]);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue(null);
+      await expect(service.getDossiersByUser('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should handle tasks with null dossier gracefully', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue({ id: userId });
+      mockPrisma.dossier.findMany.mockResolvedValue([]);
+      mockPrisma.tache.findMany.mockResolvedValue([
+        { dossier: null }, // tâche sans dossier
+      ]);
+
+      const result = await service.getDossiersByUser(userId);
+      expect(result).toEqual([]); // aucun dossier renvoyé
+    });
+
+    it('should remove duplicates if user is responsible and assigned to same dossier', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue({ id: userId });
+      mockPrisma.dossier.findMany.mockResolvedValue([mockDossiers[0]]);
+      mockPrisma.tache.findMany.mockResolvedValue([
+        { dossier: mockDossiers[0] }, // même dossier que responsable
+      ]);
+
+      const result = await service.getDossiersByUser(userId);
+      expect(result).toEqual([mockDossiers[0]]); // pas de doublon
     });
   });
 });

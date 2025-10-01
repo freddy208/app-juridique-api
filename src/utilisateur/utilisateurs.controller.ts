@@ -27,6 +27,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { TaskWithDetailsDto } from './dto/task-with-details.dto';
+import { DossierResponseDto } from './dto/dossier-response.dto';
 
 @ApiTags('Utilisateurs')
 @ApiBearerAuth('JWT-auth')
@@ -98,5 +99,14 @@ export class UtilisateursController {
   @Get(':id/tasks')
   async getTasksByUser(@Param('id') id: string): Promise<TaskWithDetailsDto[]> {
     return this.utilisateursService.getTasksByUser(id);
+  }
+  @ApiOperation({
+    summary: 'Récupérer les dossiers suivis par un collaborateur',
+  })
+  @ApiOkResponse({ type: [DossierResponseDto] })
+  @ApiNotFoundResponse({ description: 'Collaborateur introuvable' })
+  @Get(':id/dossiers')
+  async getDossiersByUser(@Param('id') id: string) {
+    return this.utilisateursService.getDossiersByUser(id);
   }
 }

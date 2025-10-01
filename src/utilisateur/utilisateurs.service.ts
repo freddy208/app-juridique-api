@@ -223,4 +223,78 @@ export class UtilisateursService {
       orderBy: { dateLimite: 'asc' },
     });
   }
+  async getDossiersByUser(id: string) {
+    const user = await this.prisma.utilisateur.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`Collaborateur avec id ${id} introuvable`);
+    }
+
+    // 1️⃣ Dossiers dont il est responsable
+    const dossiersResponsable = await this.prisma.dossier.findMany({
+      where: { responsableId: id },
+      select: {
+        id: true,
+        numeroUnique: true,
+        titre: true,
+        type: true,
+        statut: true,
+        creeLe: true,
+        modifieLe: true,
+        client: {
+          select: {
+            id: true,
+            prenom: true,
+            nom: true,
+            nomEntreprise: true,
+          },
+        },
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+
+    // 2️⃣ Dossiers via les tâches assignées
+    const taches = await this.prisma.tache.findMany({
+      where: { assigneeId: id, dossierId: { not: null } },
+      select: {
+        dossier: {
+          select: {
+            id: true,
+            numeroUnique: true,
+            titre: true,
+            type: true,
+            statut: true,
+            creeLe: true,
+            modifieLe: true,
+            client: {
+              select: {
+                id: true,
+                prenom: true,
+                nom: true,
+                nomEntreprise: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 3️⃣ Extraire les dossiers uniques, en filtrant les null
+    const dossiersViaTaches = Array.from(
+      new Map(
+        taches
+          .filter(
+            (t): t is { dossier: NonNullable<typeof t.dossier> } =>
+              t.dossier !== null,
+          ) // <-- filtre
+          .map((t) => [t.dossier.id, t.dossier]),
+      ).values(),
+    );
+
+    // 4️⃣ Fusionner les deux listes et retirer les doublons
+    const allDossiersMap = new Map(
+      [...dossiersResponsable, ...dossiersViaTaches].map((d) => [d.id, d]),
+    );
+
+    return Array.from(allDossiersMap.values());
+  }
 }
