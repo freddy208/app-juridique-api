@@ -3,7 +3,12 @@ import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
-import { Prisma, StatutClient, StatutDossier } from '@prisma/client';
+import {
+  Prisma,
+  StatutClient,
+  StatutDossier,
+  StatutDocument,
+} from '@prisma/client';
 
 @Injectable()
 export class ClientsService {
@@ -173,6 +178,42 @@ export class ClientsService {
         taches: true,
         responsable: true,
         client: true,
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+  }
+  //document
+  async findDocumentsByClient(
+    clientId: string,
+    statut?: StatutDocument,
+    skip?: number,
+    take?: number,
+  ) {
+    // Vérifier si le client existe
+    const clientExists = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!clientExists) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 10;
+
+    return this.prisma.document.findMany({
+      where: {
+        dossier: { clientId }, // Tous les documents liés aux dossiers du client
+        ...(statut && { statut }),
+      },
+      skip: effectiveSkip,
+      take: effectiveTake,
+      include: {
+        dossier: {
+          select: { id: true, numeroUnique: true, titre: true, type: true },
+        },
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
       },
       orderBy: { creeLe: 'desc' },
     });

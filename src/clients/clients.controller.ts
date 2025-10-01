@@ -24,6 +24,7 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { UpdateClientStatusDto } from './dto/update-client-status.dto';
 import { FilterDossierDto } from './dto/filter-dossier.dto';
+import { FilterDocumentDto } from './dto/filter-document.dto';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -82,6 +83,20 @@ export class ClientsController {
     return this.clientsService.findDossiersByClient(
       id,
       filters.statutDossier,
+      filters.skip ?? 0,
+      filters.take ?? 10,
+    );
+  }
+  @Get(':id/documents')
+  @ApiOperation({ summary: 'Lister les documents liés à un client' })
+  @ApiParam({ name: 'id', description: 'ID du client', type: String })
+  async getDocuments(
+    @Param('id') id: string,
+    @Query() filters: FilterDocumentDto,
+  ) {
+    return this.clientsService.findDocumentsByClient(
+      id,
+      filters.statut,
       filters.skip ?? 0,
       filters.take ?? 10,
     );

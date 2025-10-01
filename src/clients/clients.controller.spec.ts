@@ -18,6 +18,7 @@ describe('ClientsController', () => {
     updateStatus: jest.fn(),
     remove: jest.fn(),
     findDossiersByClient: jest.fn(),
+    findDocumentsByClient: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -243,6 +244,51 @@ describe('ClientsController', () => {
       expect(service.findDossiersByClient).toHaveBeenCalledWith(
         clientId,
         undefined,
+        0,
+        10,
+      );
+    });
+  });
+  // ---------- getDocuments tests ----------
+  describe('getDocuments', () => {
+    it('should call service.findDocumentsByClient and return result', async () => {
+      const clientId = '1';
+      const mockDocuments = [
+        { id: 'doc1', titre: 'Document 1', clientId },
+        { id: 'doc2', titre: 'Document 2', clientId },
+      ];
+
+      (service.findDocumentsByClient as jest.Mock).mockResolvedValue(
+        mockDocuments,
+      );
+
+      const result = await controller.getDocuments(clientId, {
+        skip: 0,
+        take: 10,
+      });
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findDocumentsByClient).toHaveBeenCalledWith(
+        clientId,
+        undefined,
+        0,
+        10,
+      );
+      expect(result).toEqual(mockDocuments);
+    });
+
+    it('should throw NotFoundException if service throws', async () => {
+      const clientId = '999';
+      (service.findDocumentsByClient as jest.Mock).mockRejectedValue(
+        new NotFoundException(),
+      );
+
+      await expect(
+        controller.getDocuments(clientId, { skip: 0, take: 10 }),
+      ).rejects.toThrow(NotFoundException);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findDocumentsByClient).toHaveBeenCalledWith(
+        clientId,
         0,
         10,
       );
