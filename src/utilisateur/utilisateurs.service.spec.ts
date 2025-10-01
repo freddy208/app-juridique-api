@@ -199,4 +199,83 @@ describe('UtilisateursService', () => {
       service.update(id, { email: 'existing@example.com' }),
     ).rejects.toThrow(ConflictException);
   });
+  describe('updateStatus', () => {
+    const id = '1';
+
+    it('should activate a user successfully', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValueOnce({
+        id,
+        statut: 'INACTIF',
+      }); // utilisateur existant
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      mockPrisma.utilisateur.update.mockImplementation((args) => ({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        ...args.data,
+        id,
+        prenom: 'John',
+        nom: 'Doe',
+        email: 'john@example.com',
+        role: 'ASSISTANT',
+        creeLe: new Date(),
+        modifieLe: new Date(),
+      }));
+
+      const result = await service.updateStatus(id, 'ACTIF');
+
+      expect(mockPrisma.utilisateur.findUnique).toHaveBeenCalledWith({
+        where: { id },
+      });
+      expect(mockPrisma.utilisateur.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id },
+          data: { statut: 'ACTIF' },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          select: expect.any(Object),
+        }),
+      );
+      expect(result.statut).toBe('ACTIF');
+    });
+
+    it('should deactivate a user successfully', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValueOnce({
+        id,
+        statut: 'ACTIF',
+      }); // utilisateur existant
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      mockPrisma.utilisateur.update.mockImplementation((args) => ({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        ...args.data,
+        id,
+        prenom: 'John',
+        nom: 'Doe',
+        email: 'john@example.com',
+        role: 'ASSISTANT',
+        creeLe: new Date(),
+        modifieLe: new Date(),
+      }));
+
+      const result = await service.updateStatus(id, 'INACTIF');
+
+      expect(result.statut).toBe('INACTIF');
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue(null);
+      await expect(
+        service.updateStatus('non-existent-id', 'ACTIF'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException if status is already applied', async () => {
+      mockPrisma.utilisateur.findUnique.mockResolvedValue({
+        id,
+        statut: 'ACTIF',
+      });
+      await expect(service.updateStatus(id, 'ACTIF')).rejects.toThrow(
+        ConflictException,
+      );
+    });
+  });
 });

@@ -7,6 +7,7 @@ import {
   Post,
   Body,
   Put,
+  Patch,
 } from '@nestjs/common';
 import { UtilisateursService } from './utilisateurs.service';
 import { FilterUsersDto } from './dto/filter-users.dto';
@@ -23,6 +24,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserResponseDto } from './dto/user-response.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
 
 @ApiTags('Utilisateurs')
 @ApiBearerAuth('JWT-auth')
@@ -65,5 +67,16 @@ export class UtilisateursController {
     @Body() dto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.utilisateursService.update(id, dto);
+  }
+  @ApiOperation({ summary: 'Activer ou désactiver un collaborateur' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiNotFoundResponse({ description: 'Collaborateur introuvable' })
+  @ApiConflictResponse({ description: 'Statut déjà appliqué' })
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+  ): Promise<UserResponseDto> {
+    return this.utilisateursService.updateStatus(id, dto.statut);
   }
 }

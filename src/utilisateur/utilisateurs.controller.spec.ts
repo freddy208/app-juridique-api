@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UtilisateursController } from './utilisateurs.controller';
 import { UtilisateursService } from './utilisateurs.service';
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('UtilisateursController', () => {
   let controller: UtilisateursController;
@@ -12,12 +12,14 @@ describe('UtilisateursController', () => {
     findOne: jest.Mock;
     create: jest.Mock;
     update: jest.Mock; // ici c’est correct
+    updateStatus: jest.Mock;
   };
   const mockService: MockUtilisateurService = {
     findAll: jest.fn().mockResolvedValue([{ id: 1, nom: 'Test' }]),
     findOne: jest.fn(),
     create: jest.fn(),
-    update: jest.fn(), // <-- ici
+    update: jest.fn(),
+    updateStatus: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -120,7 +122,7 @@ describe('UtilisateursController', () => {
       modifieLe: new Date(),
     };
 
-    (mockService.update as jest.Mock).mockResolvedValue(mockUser);
+    mockService.update.mockResolvedValue(mockUser);
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const result = await controller.update(id, dto as any);
@@ -131,7 +133,7 @@ describe('UtilisateursController', () => {
   it('should throw ConflictException if service.update throws it', async () => {
     const id = '1';
     const dto = { email: 'existing@example.com' };
-    (mockService.update as jest.Mock).mockRejectedValue(
+    mockService.update.mockRejectedValue(
       new ConflictException('Email déjà utilisé'),
     );
 
@@ -139,5 +141,45 @@ describe('UtilisateursController', () => {
     await expect(controller.update(id, dto as any)).rejects.toThrow(
       ConflictException,
     );
+  });
+  describe('PATCH /users/:id/status', () => {
+    const id = '1';
+    const dto = { statut: 'ACTIF' as const };
+    const mockUser = {
+      id,
+      prenom: 'John',
+      nom: 'Doe',
+      email: 'john@example.com',
+      role: 'ASSISTANT',
+      statut: 'ACTIF',
+      creeLe: new Date(),
+      modifieLe: new Date(),
+    };
+
+    it('should call service.updateStatus and return updated user', async () => {
+      mockService.updateStatus = jest.fn().mockResolvedValue(mockUser);
+
+      const result = await controller.updateStatus(id, dto);
+      expect(mockService.updateStatus).toHaveBeenCalledWith(id, dto.statut);
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should throw NotFoundException if service.updateStatus throws it', async () => {
+      mockService.updateStatus = jest
+        .fn()
+        .mockRejectedValue(new NotFoundException());
+      await expect(controller.updateStatus(id, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw ConflictException if service.updateStatus throws it', async () => {
+      mockService.updateStatus = jest
+        .fn()
+        .mockRejectedValue(new ConflictException());
+      await expect(controller.updateStatus(id, dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
   });
 });
