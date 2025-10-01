@@ -7,10 +7,17 @@ describe('UtilisateursController', () => {
   let controller: UtilisateursController;
   let service: UtilisateursService;
 
-  const mockService: Partial<UtilisateursService> = {
+  type MockUtilisateurService = {
+    findAll: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock; // ici c’est correct
+  };
+  const mockService: MockUtilisateurService = {
     findAll: jest.fn().mockResolvedValue([{ id: 1, nom: 'Test' }]),
     findOne: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(), // <-- ici
   };
 
   beforeEach(async () => {
@@ -45,14 +52,14 @@ describe('UtilisateursController', () => {
       creeLe: new Date(),
       modifieLe: new Date(),
     };
-    (mockService.findOne as jest.Mock).mockResolvedValue(mockUser);
+    mockService.findOne.mockResolvedValue(mockUser);
     const result = await controller.findOne('1');
     expect(mockService.findOne).toHaveBeenCalledWith('1');
     expect(result).toEqual(mockUser);
   });
 
   it('should throw if service.findOne throws', async () => {
-    (mockService.findOne as jest.Mock).mockRejectedValue(new Error('DB error'));
+    mockService.findOne.mockRejectedValue(new Error('DB error'));
     await expect(controller.findOne('1')).rejects.toThrow('DB error');
   });
 
@@ -74,7 +81,7 @@ describe('UtilisateursController', () => {
       creeLe: new Date(),
       modifieLe: new Date(),
     };
-    (mockService.create as jest.Mock).mockResolvedValue(mockUser);
+    mockService.create.mockResolvedValue(mockUser);
 
     const result = await controller.create(dto);
     expect(mockService.create).toHaveBeenCalledWith(dto);
@@ -88,7 +95,7 @@ describe('UtilisateursController', () => {
       email: 'existing@example.com',
       motDePasse: 'secret123',
     };
-    (mockService.create as jest.Mock).mockRejectedValue(
+    mockService.create.mockRejectedValue(
       new ConflictException('Email déjà utilisé'),
     );
 
