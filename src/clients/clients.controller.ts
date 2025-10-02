@@ -28,7 +28,7 @@ import { FilterDocumentDto } from './dto/filter-document.dto';
 import { FilterNoteDto } from './dto/filter-note.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
-import { User } from 'src/auth/decorators/user.decorator';
+import { User } from '../auth/decorators/user.decorator';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')

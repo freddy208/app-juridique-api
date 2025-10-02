@@ -523,7 +523,7 @@ describe('ClientsService', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.note.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { clientId },
+          where: { clientId, statut: 'ACTIF' },
           skip: 0,
           take: 10,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
