@@ -399,7 +399,7 @@ describe('ClientsService', () => {
       });
     });
   });
-  // ---------- findDocumentsByClient tests ----------
+  // ---------- findDocumentsByClient tests module ----------
   describe('findDocumentsByClient', () => {
     it('should return documents when client exists', async () => {
       const clientId = '1';
