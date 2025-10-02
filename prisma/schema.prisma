@@ -325,6 +325,7 @@ model Note {
   dossierId     String?
   utilisateurId String
   contenu       String
+  statut        StatutNote  @default(ACTIF) // <- ajouter
   creeLe        DateTime    @default(now())
   modifieLe     DateTime    @updatedAt
   client        Client?     @relation(fields: [clientId], references: [id])
@@ -445,4 +446,8 @@ enum TypeCorrespondance {
   EMAIL
   RENDEZ_VOUS
   AUTRE
+}
+enum StatutNote {
+  ACTIF
+  SUPPRIME
 }

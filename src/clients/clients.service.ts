@@ -3,11 +3,14 @@ import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { CreateNoteDto } from './dto/create-note.dto';
+import { UpdateNoteDto } from './dto/update-note.dto';
 import {
   Prisma,
   StatutClient,
   StatutDossier,
   StatutDocument,
+  //StatutNote,
 } from '@prisma/client';
 
 @Injectable()
@@ -259,7 +262,7 @@ export class ClientsService {
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
 
-    const where: Prisma.NoteWhereInput = { clientId };
+    const where: Prisma.NoteWhereInput = { clientId }; //statut: StatutNote.ACTIF
 
     const totalCount = await this.prisma.note.count({ where });
     const data = await this.prisma.note.findMany({
@@ -283,5 +286,94 @@ export class ClientsService {
       take: effectiveTake,
       data,
     };
+  }
+  async createNote(
+    clientId: string,
+    utilisateurId: string,
+    dto: CreateNoteDto,
+  ) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    if (dto.dossierId) {
+      const dossier = await this.prisma.dossier.findUnique({
+        where: { id: dto.dossierId },
+      });
+      if (!dossier) {
+        throw new NotFoundException(
+          `Dossier avec l'id ${dto.dossierId} introuvable`,
+        );
+      }
+    }
+
+    return this.prisma.note.create({
+      data: {
+        clientId,
+        dossierId: dto.dossierId,
+        utilisateurId,
+        contenu: dto.contenu,
+      },
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+        dossier: { select: { id: true, numeroUnique: true, titre: true } },
+        client: {
+          select: { id: true, prenom: true, nom: true, nomEntreprise: true },
+        },
+      },
+    });
+  }
+
+  // Modifier une note
+  async updateNote(noteId: string, utilisateurId: string, dto: UpdateNoteDto) {
+    const note = await this.prisma.note.findUnique({ where: { id: noteId } });
+    if (!note) {
+      throw new NotFoundException(`Note avec l'id ${noteId} introuvable`);
+    }
+
+    // Optionnel : vérifier que l'utilisateur est le créateur
+    if (note.utilisateurId !== utilisateurId) {
+      throw new NotFoundException(
+        `Vous n'avez pas le droit de modifier cette note`,
+      );
+    }
+
+    return this.prisma.note.update({
+      where: { id: noteId },
+      data: { contenu: dto.contenu },
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+        dossier: { select: { id: true, numeroUnique: true, titre: true } },
+        client: {
+          select: { id: true, prenom: true, nom: true, nomEntreprise: true },
+        },
+      },
+    });
+  }
+
+  // Supprimer une note
+  async removeNote(noteId: string, utilisateurId: string) {
+    const note = await this.prisma.note.findUnique({ where: { id: noteId } });
+    if (!note) {
+      throw new NotFoundException(`Note avec l'id ${noteId} introuvable`);
+    }
+
+    if (note.utilisateurId !== utilisateurId) {
+      throw new NotFoundException(
+        `Vous n'avez pas le droit de supprimer cette note`,
+      );
+    }
+
+    return this.prisma.note.update({
+      where: { id: noteId },
+      data: {}, //{ statut: 'SUPPRIME' }
+    });
   }
 }
