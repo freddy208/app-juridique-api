@@ -10,7 +10,6 @@ import {
   Body,
   Delete,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -29,6 +28,7 @@ import { FilterDocumentDto } from './dto/filter-document.dto';
 import { FilterNoteDto } from './dto/filter-note.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { User } from 'src/auth/decorators/user.decorator';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -123,11 +123,8 @@ export class ClientsController {
   async addNote(
     @Param('id') clientId: string,
     @Body() dto: CreateNoteDto,
-    @Req() req: Request,
+    @User('id') utilisateurId: string,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const utilisateurId = req.user['id']; // supposant que JwtAuthGuard injecte l'user
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.clientsService.createNote(clientId, utilisateurId, dto);
   }
 
@@ -137,20 +134,18 @@ export class ClientsController {
   async editNote(
     @Param('noteId') noteId: string,
     @Body() dto: UpdateNoteDto,
-    @Req() req: Request,
+    @User('id') utilisateurId: string,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const utilisateurId = req.user['id'];
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.clientsService.updateNote(noteId, utilisateurId, dto);
   }
+
   @ApiOperation({ summary: 'Supprimer une note interne' })
   @Delete('notes/:noteId')
   @ApiParam({ name: 'noteId', description: 'ID de la note à supprimer' })
-  async deleteNote(@Param('noteId') noteId: string, @Req() req: Request) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const utilisateurId = req.user['id'];
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  async deleteNote(
+    @Param('noteId') noteId: string,
+    @User('id') utilisateurId: string,
+  ) {
     return this.clientsService.removeNote(noteId, utilisateurId);
   }
 }

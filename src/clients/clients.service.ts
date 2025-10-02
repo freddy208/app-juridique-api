@@ -10,7 +10,7 @@ import {
   StatutClient,
   StatutDossier,
   StatutDocument,
-  //StatutNote,
+  StatutNote,
 } from '@prisma/client';
 
 @Injectable()
@@ -262,7 +262,7 @@ export class ClientsService {
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
 
-    const where: Prisma.NoteWhereInput = { clientId }; //statut: StatutNote.ACTIF
+    const where: Prisma.NoteWhereInput = { clientId, statut: StatutNote.ACTIF };
 
     const totalCount = await this.prisma.note.count({ where });
     const data = await this.prisma.note.findMany({
@@ -373,7 +373,7 @@ export class ClientsService {
 
     return this.prisma.note.update({
       where: { id: noteId },
-      data: {}, //{ statut: 'SUPPRIME' }
+      data: { statut: StatutNote.SUPPRIME },
     });
   }
 }
