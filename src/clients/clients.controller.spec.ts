@@ -2,10 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClientsController } from './clients.controller';
 import { ClientsService } from './clients.service';
 import { FilterClientDto } from './dto/filter-client.dto';
-import { StatutClient } from '@prisma/client';
+import {
+  StatutClient,
+  StatutCorrespondance,
+  TypeCorrespondance,
+} from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
 import { FilterDossierDto } from './dto/filter-dossier.dto';
-
 describe('ClientsController', () => {
   let controller: ClientsController;
   let service: ClientsService;
@@ -20,6 +23,7 @@ describe('ClientsController', () => {
     findDossiersByClient: jest.fn(),
     findDocumentsByClient: jest.fn(),
     findNotesByClient: jest.fn(),
+    findCorrespondancesByClient: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -358,6 +362,131 @@ describe('ClientsController', () => {
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findNotesByClient).toHaveBeenCalledWith(clientId, 2, 5);
+    });
+  });
+  // ---------- getCorrespondances tests ----------
+  describe('getCorrespondances', () => {
+    let mockService: jest.Mocked<ClientsService>;
+
+    beforeEach(() => {
+      mockService = service as jest.Mocked<ClientsService>;
+    });
+
+    it('should call service.findCorrespondancesByClient and return result', async () => {
+      const clientId = '1';
+      const mockCorrespondances = {
+        totalCount: 2,
+        skip: 0,
+        take: 10,
+        data: [
+          {
+            id: 'c1',
+            objet: 'Lettre 1',
+            clientId,
+            client: {
+              id: '1',
+              prenom: 'Jean',
+              nom: 'Dupont',
+              nomEntreprise: 'Dupont SARL',
+            },
+            utilisateur: {
+              id: 'u1',
+              prenom: 'John',
+              nom: 'Doe',
+              email: 'john@example.com',
+            },
+            statut: 'EN_ATTENTE' as StatutCorrespondance, // ou autre valeur valide
+            creeLe: new Date(),
+            modifieLe: new Date(),
+            type: 'LETTRE' as TypeCorrespondance, // ou autre valeur valide
+            utilisateurId: 'u1',
+            contenu: 'Contenu de la lettre',
+          },
+          {
+            id: 'c2',
+            objet: 'Lettre 2',
+            clientId,
+            client: {
+              id: '1',
+              prenom: 'Jean',
+              nom: 'Dupont',
+              nomEntreprise: 'Dupont SARL',
+            },
+            utilisateur: {
+              id: 'u2',
+              prenom: 'Jane',
+              nom: 'Doe',
+              email: 'jane@example.com',
+            },
+            statut: 'EN_ATTENTE' as StatutCorrespondance,
+            creeLe: new Date(),
+            modifieLe: new Date(),
+            type: 'LETTRE' as TypeCorrespondance,
+            utilisateurId: 'u2',
+            contenu: 'Contenu de la lettre',
+          },
+        ],
+      };
+
+      mockService.findCorrespondancesByClient.mockResolvedValue(
+        mockCorrespondances,
+      );
+
+      const result = await controller.getCorrespondances(clientId, {
+        skip: 0,
+        take: 10,
+      });
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockService.findCorrespondancesByClient).toHaveBeenCalledWith(
+        clientId,
+        0,
+        10,
+      );
+      expect(result).toEqual(mockCorrespondances);
+    });
+
+    it('should use default pagination when not provided', async () => {
+      const clientId = '1';
+      const mockCorrespondances = {
+        totalCount: 0,
+        skip: 0,
+        take: 10,
+        data: [],
+      };
+
+      mockService.findCorrespondancesByClient.mockResolvedValue(
+        mockCorrespondances,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      const result = await controller.getCorrespondances(clientId, {} as any);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockService.findCorrespondancesByClient).toHaveBeenCalledWith(
+        clientId,
+        0,
+        10,
+      );
+      expect(result).toEqual(mockCorrespondances);
+    });
+
+    it('should throw NotFoundException if service throws', async () => {
+      const clientId = '999';
+      mockService.findCorrespondancesByClient.mockRejectedValue(
+        new NotFoundException(),
+      );
+
+      await expect(
+        controller.getCorrespondances(clientId, { skip: 0, take: 10 }),
+      ).rejects.toThrow(NotFoundException);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockService.findCorrespondancesByClient).toHaveBeenCalledWith(
+        clientId,
+        0,
+        10,
+      );
     });
   });
 });

@@ -41,6 +41,14 @@ describe('ClientsService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    correspondance: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -575,6 +583,89 @@ describe('ClientsService', () => {
         skip: 0,
         take: 10,
         data: mockNotes,
+      });
+    });
+  });
+  // ---------- findCorrespondancesByClient tests ----------
+  describe('findCorrespondancesByClient', () => {
+    it('should return correspondances when client exists', async () => {
+      const clientId = '1';
+      const mockCorrespondances = [
+        { id: 'c1', objet: 'Lettre 1', clientId },
+        { id: 'c2', objet: 'Lettre 2', clientId },
+      ];
+
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+        id: clientId,
+      });
+      (prisma.correspondance.findMany as jest.Mock).mockResolvedValue(
+        mockCorrespondances,
+      );
+      (prisma.correspondance.count as jest.Mock).mockResolvedValue(
+        mockCorrespondances.length,
+      );
+
+      const result = await service.findCorrespondancesByClient(clientId, 0, 10);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.client.findUnique).toHaveBeenCalledWith({
+        where: { id: clientId },
+      });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.correspondance.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId, statut: 'ACTIF' },
+          skip: 0,
+          take: 10,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          include: expect.any(Object),
+          orderBy: { creeLe: 'desc' },
+        }),
+      );
+      expect(result).toEqual({
+        totalCount: mockCorrespondances.length,
+        skip: 0,
+        take: 10,
+        data: mockCorrespondances,
+      });
+    });
+
+    it('should throw NotFoundException if client does not exist', async () => {
+      const clientId = '999';
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.findCorrespondancesByClient(clientId),
+      ).rejects.toThrow(NotFoundException);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.client.findUnique).toHaveBeenCalledWith({
+        where: { id: clientId },
+      });
+    });
+
+    it('should use default skip and take if not provided', async () => {
+      const clientId = '1';
+      const mockCorrespondances: any[] = [];
+
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue({
+        id: clientId,
+      });
+      (prisma.correspondance.findMany as jest.Mock).mockResolvedValue(
+        mockCorrespondances,
+      );
+      (prisma.correspondance.count as jest.Mock).mockResolvedValue(0);
+
+      const result = await service.findCorrespondancesByClient(clientId);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(prisma.correspondance.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
+      expect(result).toEqual({
+        totalCount: 0,
+        skip: 0,
+        take: 10,
+        data: [],
       });
     });
   });

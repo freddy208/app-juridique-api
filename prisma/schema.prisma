@@ -313,6 +313,7 @@ model Correspondance {
   utilisateurId String
   type          TypeCorrespondance
   contenu       String?
+  statut        StatutCorrespondance  @default(ACTIF) // <- ajouter
   creeLe        DateTime           @default(now())
   modifieLe     DateTime           @updatedAt
   client        Client             @relation(fields: [clientId], references: [id])
@@ -448,6 +449,10 @@ enum TypeCorrespondance {
   AUTRE
 }
 enum StatutNote {
+  ACTIF
+  SUPPRIME
+}
+enum StatutCorrespondance {
   ACTIF
   SUPPRIME
 }

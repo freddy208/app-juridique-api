@@ -29,6 +29,9 @@ import { FilterNoteDto } from './dto/filter-note.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { User } from '../auth/decorators/user.decorator';
+import { CreateCorrespondanceDto } from './dto/create-correspondance.dto';
+import { UpdateCorrespondanceDto } from './dto/update-correspondance.dto';
+import { FilterCorrespondanceDto } from './dto/filter-correspondance.dto';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -147,5 +150,59 @@ export class ClientsController {
     @User('id') utilisateurId: string,
   ) {
     return this.clientsService.removeNote(noteId, utilisateurId);
+  }
+  @Get(':id/correspondances')
+  @ApiOperation({ summary: 'Lister les correspondances d’un client' })
+  async getCorrespondances(
+    @Param('id') clientId: string,
+    @Query() filters: FilterCorrespondanceDto,
+  ) {
+    const skip = Number(filters.skip ?? 0);
+    const take = Number(filters.take ?? 10);
+    return this.clientsService.findCorrespondancesByClient(
+      clientId,
+      skip,
+      take,
+    );
+  }
+
+  @Post(':id/correspondances')
+  @ApiOperation({ summary: 'Créer une correspondance pour un client' })
+  async addCorrespondance(
+    @Param('id') clientId: string,
+    @Body() dto: CreateCorrespondanceDto,
+    @User('id') utilisateurId: string,
+  ) {
+    return this.clientsService.createCorrespondance(
+      clientId,
+      utilisateurId,
+      dto,
+    );
+  }
+
+  @Put('correspondances/:correspondanceId')
+  @ApiOperation({ summary: 'Modifier une correspondance' })
+  async editCorrespondance(
+    @Param('correspondanceId') correspondanceId: string,
+    @Body() dto: UpdateCorrespondanceDto,
+    @User('id') utilisateurId: string,
+  ) {
+    return this.clientsService.updateCorrespondance(
+      correspondanceId,
+      utilisateurId,
+      dto,
+    );
+  }
+
+  @Delete('correspondances/:correspondanceId')
+  @ApiOperation({ summary: 'Supprimer une correspondance (soft delete)' })
+  async deleteCorrespondance(
+    @Param('correspondanceId') correspondanceId: string,
+    @User('id') utilisateurId: string,
+  ) {
+    return this.clientsService.removeCorrespondance(
+      correspondanceId,
+      utilisateurId,
+    );
   }
 }

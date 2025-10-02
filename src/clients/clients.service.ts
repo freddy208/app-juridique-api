@@ -5,12 +5,15 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { CreateCorrespondanceDto } from './dto/create-correspondance.dto';
+import { UpdateCorrespondanceDto } from './dto/update-correspondance.dto';
 import {
   Prisma,
   StatutClient,
   StatutDossier,
   StatutDocument,
   StatutNote,
+  StatutCorrespondance,
 } from '@prisma/client';
 
 @Injectable()
@@ -374,6 +377,138 @@ export class ClientsService {
     return this.prisma.note.update({
       where: { id: noteId },
       data: { statut: StatutNote.SUPPRIME },
+    });
+  }
+
+  // Lister les correspondances d’un client
+  async findCorrespondancesByClient(
+    clientId: string,
+    skip?: number,
+    take?: number,
+  ) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 10;
+
+    const where = { clientId, statut: StatutCorrespondance.ACTIF };
+
+    const totalCount = await this.prisma.correspondance.count({ where });
+
+    const data = await this.prisma.correspondance.findMany({
+      where,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+        client: {
+          select: { id: true, prenom: true, nom: true, nomEntreprise: true },
+        },
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+
+    return {
+      totalCount,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      data,
+    };
+  }
+
+  // Créer une correspondance
+  async createCorrespondance(
+    clientId: string,
+    utilisateurId: string,
+    dto: CreateCorrespondanceDto,
+  ) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    return this.prisma.correspondance.create({
+      data: {
+        clientId,
+        utilisateurId,
+        type: dto.type,
+        contenu: dto.contenu,
+      },
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+        client: {
+          select: { id: true, prenom: true, nom: true, nomEntreprise: true },
+        },
+      },
+    });
+  }
+
+  // Modifier une correspondance
+  async updateCorrespondance(
+    correspondanceId: string,
+    utilisateurId: string,
+    dto: UpdateCorrespondanceDto,
+  ) {
+    const correspondance = await this.prisma.correspondance.findUnique({
+      where: { id: correspondanceId },
+    });
+    if (!correspondance) {
+      throw new NotFoundException(
+        `Correspondance avec l'id ${correspondanceId} introuvable`,
+      );
+    }
+
+    if (correspondance.utilisateurId !== utilisateurId) {
+      throw new NotFoundException(
+        `Vous n'avez pas le droit de modifier cette correspondance`,
+      );
+    }
+
+    return this.prisma.correspondance.update({
+      where: { id: correspondanceId },
+      data: { ...dto },
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+        client: {
+          select: { id: true, prenom: true, nom: true, nomEntreprise: true },
+        },
+      },
+    });
+  }
+
+  // Supprimer (soft delete)
+  async removeCorrespondance(correspondanceId: string, utilisateurId: string) {
+    const correspondance = await this.prisma.correspondance.findUnique({
+      where: { id: correspondanceId },
+    });
+    if (!correspondance) {
+      throw new NotFoundException(
+        `Correspondance avec l'id ${correspondanceId} introuvable`,
+      );
+    }
+
+    if (correspondance.utilisateurId !== utilisateurId) {
+      throw new NotFoundException(
+        `Vous n'avez pas le droit de supprimer cette correspondance`,
+      );
+    }
+
+    return this.prisma.correspondance.update({
+      where: { id: correspondanceId },
+      data: { statut: StatutCorrespondance.SUPPRIME },
     });
   }
 }
