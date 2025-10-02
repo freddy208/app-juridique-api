@@ -371,6 +371,7 @@ enum StatutDossier {
   EN_COURS
   CLOS
   ARCHIVE
+  SUPPRIME
 }
 
 enum GraviteBlessure {
@@ -411,12 +412,14 @@ enum StatutTache {
   A_FAIRE
   EN_COURS
   TERMINEE
+  SUPPRIME
 }
 
 enum StatutEvenement {
   PREVU
   TERMINE
   ANNULE
+  SUPPRIME
 }
 
 enum StatutMessage {
@@ -430,6 +433,7 @@ enum StatutFacture {
   ENVOYEE
   PAYEE
   EN_RETARD
+  SUPPRIME
 }
 
 enum StatutPermission {

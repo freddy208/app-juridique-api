@@ -1,7 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export const User = createParamDecorator(
-  (data: string, ctx: ExecutionContext) => {
+  (data: string | undefined, ctx: ExecutionContext) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const request = ctx.switchToHttp().getRequest();
     // data peut être 'id', 'email', etc.
