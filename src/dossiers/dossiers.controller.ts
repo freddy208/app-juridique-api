@@ -174,9 +174,13 @@ export class DossiersController {
   async addNote(
     @Param('id') dossierId: string,
     @Body() createNoteDto: CreateNoteDto,
-    @User('userId') userId: string,
+    @User('id') utilisateurId: string,
   ) {
-    return this.dossiersService.addNote(dossierId, createNoteDto, userId);
+    return this.dossiersService.addNote(
+      dossierId,
+      createNoteDto,
+      utilisateurId,
+    );
   }
 
   // Modifier une note
