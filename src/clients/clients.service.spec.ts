@@ -382,7 +382,7 @@ describe('ClientsService', () => {
       (prisma.dossier.findMany as jest.Mock).mockResolvedValue(mockDossiers);
       (prisma.dossier.count as jest.Mock).mockResolvedValue(
         mockDossiers.length,
-      ); // ✅
+      );
 
       const result = await service.findDossiersByClient(clientId); // skip et take par défaut
 
@@ -399,7 +399,7 @@ describe('ClientsService', () => {
       });
     });
   });
-  // ---------- findDocumentsByClient tests ----------
+  // ---------- findDocumentsByClient tests module ----------
   describe('findDocumentsByClient', () => {
     it('should return documents when client exists', async () => {
       const clientId = '1';
