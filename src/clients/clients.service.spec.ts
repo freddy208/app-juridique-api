@@ -15,6 +15,7 @@ describe('ClientsService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
     dossier: {
       findMany: jest.fn(),
@@ -22,6 +23,7 @@ describe('ClientsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     },
     document: {
       findMany: jest.fn(),
@@ -29,6 +31,7 @@ describe('ClientsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     },
     note: {
       findMany: jest.fn(),
@@ -36,6 +39,7 @@ describe('ClientsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     },
   };
 
@@ -70,6 +74,7 @@ describe('ClientsService', () => {
     const mockClients = [
       { id: '1', prenom: 'Jean', nom: 'Dupont', statut: StatutClient.ACTIF },
     ];
+    (prisma.client.count as jest.Mock).mockResolvedValue(mockClients.length);
     (prisma.client.findMany as jest.Mock).mockResolvedValue(mockClients);
 
     const result = await service.findAll(filters);
@@ -89,22 +94,42 @@ describe('ClientsService', () => {
         take: 10,
       }),
     );
-    expect(result).toEqual(mockClients);
+    (prisma.client.count as jest.Mock).mockResolvedValue(mockClients.length);
+    expect(result).toEqual({
+      totalCount: mockClients.length,
+      skip: 0,
+      take: 10,
+      data: mockClients,
+    });
   });
 
   it('should handle empty filters', async () => {
-    const filters: FilterClientDto = {};
-    (prisma.client.findMany as jest.Mock).mockResolvedValue([]);
+    const filters: FilterClientDto = {
+      skip: 0,
+      take: 10,
+    };
+
+    const mockClients: any[] = []; // aucun client
+    (prisma.client.findMany as jest.Mock).mockResolvedValue(mockClients);
+    (prisma.client.count as jest.Mock).mockResolvedValue(mockClients.length); // totalCount = 0
 
     const result = await service.findAll(filters);
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prisma.client.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {},
+        where: {}, // pas de filtre
+        skip: 0,
+        take: 10,
       }),
     );
-    expect(result).toEqual([]);
+
+    expect(result).toEqual({
+      totalCount: 0,
+      skip: 0,
+      take: 10,
+      data: [],
+    });
   });
 
   // ---------- findOne tests ----------
@@ -288,12 +313,14 @@ describe('ClientsService', () => {
         { id: 'd2', titre: 'Dossier 2', clientId },
       ];
 
-      // Mock pour vérifier existence du client
       (prisma.client.findUnique as jest.Mock).mockResolvedValue({
         id: clientId,
       });
-      // Mock findMany pour dossiers
       (prisma.dossier.findMany as jest.Mock).mockResolvedValue(mockDossiers);
+      (prisma.dossier.count as jest.Mock).mockResolvedValue(
+        mockDossiers.length,
+      ); // ✅ mock count avant
+
       const result = await service.findDossiersByClient(
         clientId,
         undefined,
@@ -315,7 +342,13 @@ describe('ClientsService', () => {
           include: expect.any(Object),
         }),
       );
-      expect(result).toEqual(mockDossiers);
+
+      expect(result).toEqual({
+        totalCount: mockDossiers.length,
+        skip: 0,
+        take: 10,
+        data: mockDossiers,
+      });
     });
 
     it('should throw NotFoundException if client does not exist', async () => {
@@ -334,19 +367,28 @@ describe('ClientsService', () => {
     it('should use default skip and take if not provided', async () => {
       const clientId = '1';
       const mockDossiers: any[] = [];
+
       (prisma.client.findUnique as jest.Mock).mockResolvedValue({
         id: clientId,
       });
       (prisma.dossier.findMany as jest.Mock).mockResolvedValue(mockDossiers);
+      (prisma.dossier.count as jest.Mock).mockResolvedValue(
+        mockDossiers.length,
+      ); // ✅
 
-      const result = await service.findDossiersByClient(clientId);
+      const result = await service.findDossiersByClient(clientId); // skip et take par défaut
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.dossier.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 10 }),
       );
 
-      expect(result).toEqual(mockDossiers);
+      expect(result).toEqual({
+        totalCount: mockDossiers.length,
+        skip: 0,
+        take: 10,
+        data: mockDossiers,
+      });
     });
   });
   // ---------- findDocumentsByClient tests ----------
@@ -362,8 +404,10 @@ describe('ClientsService', () => {
         id: clientId,
       });
       (prisma.document.findMany as jest.Mock).mockResolvedValue(mockDocuments);
+      (prisma.document.count as jest.Mock).mockResolvedValue(
+        mockDocuments.length,
+      ); // ✅
 
-      // ✅ statut = undefined
       const result = await service.findDocumentsByClient(
         clientId,
         undefined,
@@ -384,7 +428,13 @@ describe('ClientsService', () => {
         include: expect.any(Object),
         orderBy: { creeLe: 'desc' },
       });
-      expect(result).toEqual(mockDocuments);
+
+      expect(result).toEqual({
+        totalCount: mockDocuments.length,
+        skip: 0,
+        take: 10,
+        data: mockDocuments,
+      });
     });
 
     it('should throw NotFoundException if client does not exist', async () => {
@@ -408,6 +458,9 @@ describe('ClientsService', () => {
         id: clientId,
       });
       (prisma.document.findMany as jest.Mock).mockResolvedValue(mockDocuments);
+      (prisma.document.count as jest.Mock).mockResolvedValue(
+        mockDocuments.length,
+      );
 
       const result = await service.findDocumentsByClient(clientId); // skip et take par défaut
 
@@ -415,7 +468,13 @@ describe('ClientsService', () => {
       expect(prisma.document.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 10 }),
       );
-      expect(result).toEqual(mockDocuments);
+
+      expect(result).toEqual({
+        totalCount: mockDocuments.length,
+        skip: 0,
+        take: 10,
+        data: mockDocuments,
+      });
     });
   });
   // ---------- findNotesByClient tests ----------
@@ -454,6 +513,7 @@ describe('ClientsService', () => {
       });
       (prisma.note.findMany as jest.Mock).mockResolvedValue(mockNotes);
 
+      (prisma.note.count as jest.Mock).mockResolvedValue(mockNotes.length);
       const result = await service.findNotesByClient(clientId, 0, 10);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -471,7 +531,14 @@ describe('ClientsService', () => {
           orderBy: { creeLe: 'desc' },
         }),
       );
-      expect(result).toEqual(mockNotes);
+      (prisma.note.count as jest.Mock).mockResolvedValue(mockNotes.length);
+
+      expect(result).toEqual({
+        totalCount: mockNotes.length,
+        skip: 0,
+        take: 10,
+        data: mockNotes,
+      });
     });
 
     it('should throw NotFoundException if client does not exist', async () => {
@@ -494,6 +561,7 @@ describe('ClientsService', () => {
         id: clientId,
       });
       (prisma.note.findMany as jest.Mock).mockResolvedValue(mockNotes);
+      (prisma.note.count as jest.Mock).mockResolvedValue(mockNotes.length);
 
       const result = await service.findNotesByClient(clientId);
 
@@ -501,7 +569,13 @@ describe('ClientsService', () => {
       expect(prisma.note.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 10 }),
       );
-      expect(result).toEqual(mockNotes);
+
+      expect(result).toEqual({
+        totalCount: mockNotes.length,
+        skip: 0,
+        take: 10,
+        data: mockNotes,
+      });
     });
   });
 });

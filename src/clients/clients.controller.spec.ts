@@ -41,7 +41,12 @@ describe('ClientsController', () => {
   });
 
   it('should call ClientsService.findAll and return result', async () => {
-    const filters: FilterClientDto = { statut: StatutClient.ACTIF };
+    const filters: FilterClientDto = {
+      statut: StatutClient.ACTIF,
+      skip: 0,
+      take: 10,
+    };
+
     const mockResult = [
       { id: '1', prenom: 'Jean', nom: 'Dupont', statut: StatutClient.ACTIF },
     ];
@@ -317,7 +322,9 @@ describe('ClientsController', () => {
 
       (service.findNotesByClient as jest.Mock).mockResolvedValue(mockNotes);
 
-      const result = await controller.getNotes(clientId, 0, 10);
+      // ✅ Crée le filtre avec skip et take
+      const filters = { skip: 0, take: 10 };
+      const result = await controller.getNotes(clientId, filters);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findNotesByClient).toHaveBeenCalledWith(clientId, 0, 10);
@@ -330,7 +337,9 @@ describe('ClientsController', () => {
         new NotFoundException(),
       );
 
-      await expect(controller.getNotes(clientId, 0, 10)).rejects.toThrow(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const filters = { skip: '0' as any, take: '10' as any };
+      await expect(controller.getNotes(clientId, filters)).rejects.toThrow(
         NotFoundException,
       );
       // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -343,8 +352,9 @@ describe('ClientsController', () => {
       (service.findNotesByClient as jest.Mock).mockResolvedValue(mockNotes);
 
       // skip et take en string pour simuler query params
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      await controller.getNotes(clientId, '2' as any, '5' as any);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const filters = { skip: '2' as any, take: '5' as any };
+      await controller.getNotes(clientId, filters);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findNotesByClient).toHaveBeenCalledWith(clientId, 2, 5);

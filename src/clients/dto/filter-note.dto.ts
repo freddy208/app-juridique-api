@@ -1,13 +1,9 @@
-import { IsEnum, IsNumber, IsOptional } from 'class-validator';
+// src/clients/dto/filter-note.dto.ts
+import { IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
-import { StatutDocument } from '@prisma/client';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export class FilterDocumentDto {
-  @IsOptional()
-  @IsEnum(StatutDocument, { message: 'StatutDocument invalide' })
-  statut?: StatutDocument;
-
+export class FilterNoteDto {
   @ApiPropertyOptional({ description: 'Pagination - skip', example: 0 })
   @Type(() => Number)
   @IsNumber()

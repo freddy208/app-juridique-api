@@ -25,6 +25,7 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { UpdateClientStatusDto } from './dto/update-client-status.dto';
 import { FilterDossierDto } from './dto/filter-dossier.dto';
 import { FilterDocumentDto } from './dto/filter-document.dto';
+import { FilterNoteDto } from './dto/filter-note.dto';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -80,11 +81,13 @@ export class ClientsController {
     @Param('id') id: string,
     @Query() filters: FilterDossierDto,
   ) {
+    const skip = Number(filters.skip ?? 0);
+    const take = Number(filters.take ?? 10);
     return this.clientsService.findDossiersByClient(
       id,
       filters.statutDossier,
-      filters.skip ?? 0,
-      filters.take ?? 10,
+      skip,
+      take,
     );
   }
   @Get(':id/documents')
@@ -94,25 +97,21 @@ export class ClientsController {
     @Param('id') id: string,
     @Query() filters: FilterDocumentDto,
   ) {
+    const skip = Number(filters.skip ?? 0);
+    const take = Number(filters.take ?? 10);
     return this.clientsService.findDocumentsByClient(
       id,
       filters.statut,
-      filters.skip ?? 0,
-      filters.take ?? 10,
+      skip,
+      take,
     );
   }
   @Get(':id/notes')
   @ApiOperation({ summary: 'Lister les notes internes d’un client' })
   @ApiParam({ name: 'id', description: 'ID du client', type: String })
-  async getNotes(
-    @Param('id') id: string,
-    @Query('skip') skip?: number,
-    @Query('take') take?: number,
-  ) {
-    return this.clientsService.findNotesByClient(
-      id,
-      Number(skip),
-      Number(take),
-    );
+  async getNotes(@Param('id') id: string, @Query() filters: FilterNoteDto) {
+    const skip = Number(filters.skip ?? 0);
+    const take = Number(filters.take ?? 10);
+    return this.clientsService.findNotesByClient(id, skip, take);
   }
 }

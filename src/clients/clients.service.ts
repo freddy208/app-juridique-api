@@ -24,13 +24,10 @@ export class ClientsService {
       email,
       telephone,
       typeDossier,
-      statutDossier, // Nouveau paramètre pour filtrer les dossiers
+      statutDossier,
       skip,
       take,
     } = filters;
-
-    const effectiveSkip = skip ?? 0;
-    const effectiveTake = take ?? 10;
 
     const where: Prisma.ClientWhereInput = {};
 
@@ -52,13 +49,22 @@ export class ClientsService {
         { nom: { contains: search, mode: 'insensitive' } },
       ];
     }
-    if (typeDossier) {
-      where.dossiers = { some: { type: typeDossier } };
+    if (typeDossier || statutDossier) {
+      where.dossiers = {
+        some: {
+          ...(typeDossier && { type: typeDossier }),
+          ...(statutDossier && { statut: statutDossier }),
+        },
+      };
     }
 
-    return this.prisma.client.findMany({
-      skip: effectiveSkip,
-      take: effectiveTake,
+    // 🔥 On calcule le total AVANT la pagination
+    const totalCount = await this.prisma.client.count({ where });
+
+    // 🔥 On récupère la portion demandée
+    const data = await this.prisma.client.findMany({
+      skip,
+      take,
       where,
       include: {
         dossiers: statutDossier ? { where: { statut: statutDossier } } : true,
@@ -66,6 +72,13 @@ export class ClientsService {
       },
       orderBy: { creeLe: 'desc' },
     });
+
+    return {
+      totalCount,
+      skip,
+      take,
+      data,
+    };
   }
 
   async findOne(id: string) {
@@ -158,8 +171,8 @@ export class ClientsService {
     if (statutDossier) {
       where.statut = statutDossier;
     }
-
-    return this.prisma.dossier.findMany({
+    const totalCount = await this.prisma.dossier.count({ where });
+    const data = await this.prisma.dossier.findMany({
       where,
       skip: effectiveSkip,
       take: effectiveTake,
@@ -181,6 +194,12 @@ export class ClientsService {
       },
       orderBy: { creeLe: 'desc' },
     });
+    return {
+      totalCount,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      data,
+    };
   }
   //document
   async findDocumentsByClient(
@@ -189,7 +208,6 @@ export class ClientsService {
     skip?: number,
     take?: number,
   ) {
-    // Vérifier si le client existe
     const clientExists = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -200,11 +218,14 @@ export class ClientsService {
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
 
-    return this.prisma.document.findMany({
-      where: {
-        dossier: { clientId }, // Tous les documents liés aux dossiers du client
-        ...(statut && { statut }),
-      },
+    const where: Prisma.DocumentWhereInput = {
+      dossier: { clientId }, // Tous les documents liés aux dossiers du client
+      ...(statut && { statut }),
+    };
+
+    const totalCount = await this.prisma.document.count({ where });
+    const data = await this.prisma.document.findMany({
+      where,
       skip: effectiveSkip,
       take: effectiveTake,
       include: {
@@ -217,10 +238,17 @@ export class ClientsService {
       },
       orderBy: { creeLe: 'desc' },
     });
+
+    return {
+      totalCount,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      data,
+    };
   }
+
   // src/clients/clients.service.ts
   async findNotesByClient(clientId: string, skip?: number, take?: number) {
-    // Vérifier si le client existe
     const clientExists = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -231,8 +259,11 @@ export class ClientsService {
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
 
-    return this.prisma.note.findMany({
-      where: { clientId },
+    const where: Prisma.NoteWhereInput = { clientId };
+
+    const totalCount = await this.prisma.note.count({ where });
+    const data = await this.prisma.note.findMany({
+      where,
       skip: effectiveSkip,
       take: effectiveTake,
       include: {
@@ -245,5 +276,12 @@ export class ClientsService {
       },
       orderBy: { creeLe: 'desc' },
     });
+
+    return {
+      totalCount,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      data,
+    };
   }
 }

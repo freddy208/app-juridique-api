@@ -2,18 +2,19 @@
 import { IsEnum, IsOptional, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 import { StatutDossier } from '@prisma/client';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterDossierDto {
   @IsOptional()
   @IsEnum(StatutDossier)
   statutDossier?: StatutDossier;
 
-  @IsOptional()
+  @ApiPropertyOptional({ description: 'Pagination - skip', example: 0 })
   @Type(() => Number)
   @IsNumber()
   skip = 0;
 
-  @IsOptional()
+  @ApiPropertyOptional({ description: 'Pagination - take', example: 10 })
   @Type(() => Number)
   @IsNumber()
   take = 10;

@@ -50,14 +50,12 @@ export class FilterClientDto {
   statutDossier?: StatutDossier;
 
   @ApiPropertyOptional({ description: 'Pagination - skip' })
-  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  skip?: number;
+  skip = 0;
 
   @ApiPropertyOptional({ description: 'Pagination - take' })
-  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  take?: number;
+  take = 10;
 }
