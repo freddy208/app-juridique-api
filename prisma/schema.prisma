@@ -31,6 +31,7 @@ model Utilisateur {
   notes                Note[]
   tachesAssignees      Tache[]               @relation("AssigneTache")
   tachesCreees         Tache[]               @relation("CreateurTache")
+  Commentaire          Commentaire[]
 }
 
 model Client {
@@ -212,22 +213,24 @@ model Document {
   modifieLe    DateTime       @updatedAt
   dossier      Dossier        @relation(fields: [dossierId], references: [id])
   utilisateur  Utilisateur    @relation("DocumentsTeleverses", fields: [televersePar], references: [id])
+  Commentaire  Commentaire[]
 }
 
 model Tache {
-  id          String       @id @default(uuid())
+  id          String        @id @default(uuid())
   dossierId   String?
   titre       String
   description String?
   assigneeId  String?
   creeParId   String
   dateLimite  DateTime?
-  statut      StatutTache  @default(A_FAIRE)
-  creeLe      DateTime     @default(now())
-  modifieLe   DateTime     @updatedAt
-  assignee    Utilisateur? @relation("AssigneTache", fields: [assigneeId], references: [id])
-  createur    Utilisateur  @relation("CreateurTache", fields: [creeParId], references: [id])
-  dossier     Dossier?     @relation(fields: [dossierId], references: [id])
+  statut      StatutTache   @default(A_FAIRE)
+  creeLe      DateTime      @default(now())
+  modifieLe   DateTime      @updatedAt
+  assignee    Utilisateur?  @relation("AssigneTache", fields: [assigneeId], references: [id])
+  createur    Utilisateur   @relation("CreateurTache", fields: [creeParId], references: [id])
+  dossier     Dossier?      @relation(fields: [dossierId], references: [id])
+  Commentaire Commentaire[]
 }
 
 model EvenementCalendrier {
@@ -308,16 +311,16 @@ model Archive {
 }
 
 model Correspondance {
-  id            String             @id @default(uuid())
+  id            String               @id @default(uuid())
   clientId      String
   utilisateurId String
   type          TypeCorrespondance
   contenu       String?
-  statut        StatutCorrespondance  @default(ACTIF) // <- ajouter
-  creeLe        DateTime           @default(now())
-  modifieLe     DateTime           @updatedAt
-  client        Client             @relation(fields: [clientId], references: [id])
-  utilisateur   Utilisateur        @relation(fields: [utilisateurId], references: [id])
+  statut        StatutCorrespondance @default(ACTIF) // <- ajouter
+  creeLe        DateTime             @default(now())
+  modifieLe     DateTime             @updatedAt
+  client        Client               @relation(fields: [clientId], references: [id])
+  utilisateur   Utilisateur          @relation(fields: [utilisateurId], references: [id])
 }
 
 model Note {
@@ -332,6 +335,26 @@ model Note {
   client        Client?     @relation(fields: [clientId], references: [id])
   dossier       Dossier?    @relation(fields: [dossierId], references: [id])
   utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
+}
+
+model Commentaire {
+  id            String            @id @default(uuid())
+  utilisateurId String
+  documentId    String?
+  tacheId       String?
+  contenu       String
+  statut        StatutCommentaire @default(ACTIF)
+  creeLe        DateTime          @default(now())
+  modifieLe     DateTime          @updatedAt
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id])
+  document    Document?   @relation(fields: [documentId], references: [id])
+  tache       Tache?      @relation(fields: [tacheId], references: [id])
+}
+
+enum StatutCommentaire {
+  ACTIF
+  SUPPRIME
 }
 
 enum RoleUtilisateur {
@@ -452,10 +475,12 @@ enum TypeCorrespondance {
   RENDEZ_VOUS
   AUTRE
 }
+
 enum StatutNote {
   ACTIF
   SUPPRIME
 }
+
 enum StatutCorrespondance {
   ACTIF
   SUPPRIME

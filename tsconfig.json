@@ -13,13 +13,15 @@
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    //"ignoreDeprecations":"6.0", // nouvelle ligne pour ignorer les avertissements de dépréciation
+
   },
   "include": [
     "src/**/*",
     "prisma/**/*",
     "test/**/*"
-  ],
+, "src/documents/dto/filter-document.dto.ts"  ],
   "exclude": [
     "node_modules",
     "dist"
