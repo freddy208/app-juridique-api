@@ -10,9 +10,9 @@ export class CloudinaryService {
   constructor(private readonly configService: ConfigService) {
     // ✅ Configuration Cloudinary à partir du ConfigService
     cloudinary.config({
-      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
+      cloud_name: 'duqsblvzm',
+      api_key: '899467543445141',
+      api_secret: 'syL85VzaVqteUdihzYcwXG14ODY',
     });
   }
 
