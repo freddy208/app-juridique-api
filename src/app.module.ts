@@ -7,6 +7,7 @@ import { UtilisateurModule } from './utilisateur/utilisateurs.module';
 import { ClientsModule } from './clients/clients.module';
 import { DossiersModule } from './dossiers/dossiers.module';
 import { DocumentsModule } from './documents/documents.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DocumentsModule } from './documents/documents.module';
     ClientsModule,
     DossiersModule,
     DocumentsModule,
+    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
