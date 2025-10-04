@@ -18,8 +18,9 @@ export class CloudinaryService {
 
   async uploadFile(file: Express.Multer.File): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
+      const timestamp = Math.floor(Date.now() / 1000);
       const uploadStream = cloudinary.uploader.upload_stream(
-        { resource_type: 'auto', folder: 'documents_cabinet' },
+        { resource_type: 'auto', folder: 'documents_cabinet', timestamp },
         (error: UploadApiErrorResponse, result: UploadApiResponse) => {
           if (error) {
             this.logger.error(`❌ Erreur Cloudinary: ${error.message}`);
