@@ -349,4 +349,8 @@ export class DocumentsController {
   ) {
     return this.documentsService.softDeleteComment(id, commentId, user.id);
   }
+  @Get('/server-time')
+  getServerTime() {
+    return { serverTime: new Date().toISOString() };
+  }
 }
