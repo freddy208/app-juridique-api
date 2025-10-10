@@ -32,6 +32,7 @@ model Utilisateur {
   tachesAssignees      Tache[]               @relation("AssigneTache")
   tachesCreees         Tache[]               @relation("CreateurTache")
   Commentaire          Commentaire[]
+  ReactionMessage      ReactionMessage[]
 }
 
 model Client {
@@ -249,15 +250,16 @@ model EvenementCalendrier {
 }
 
 model MessageChat {
-  id           String        @id @default(uuid())
-  dossierId    String?
-  expediteurId String
-  contenu      String
-  statut       StatutMessage @default(ENVOYE)
-  creeLe       DateTime      @default(now())
-  modifieLe    DateTime      @updatedAt
-  dossier      Dossier?      @relation(fields: [dossierId], references: [id])
-  expediteur   Utilisateur   @relation(fields: [expediteurId], references: [id])
+  id              String            @id @default(uuid())
+  dossierId       String?
+  expediteurId    String
+  contenu         String
+  statut          StatutMessage     @default(ENVOYE)
+  creeLe          DateTime          @default(now())
+  modifieLe       DateTime          @updatedAt
+  dossier         Dossier?          @relation(fields: [dossierId], references: [id])
+  expediteur      Utilisateur       @relation(fields: [expediteurId], references: [id])
+  ReactionMessage ReactionMessage[]
 }
 
 model Facture {
@@ -350,6 +352,18 @@ model Commentaire {
   utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id])
   document    Document?   @relation(fields: [documentId], references: [id])
   tache       Tache?      @relation(fields: [tacheId], references: [id])
+}
+
+model ReactionMessage {
+  id            String      @id @default(uuid())
+  messageId     String
+  utilisateurId String
+  type          String // exemple: "LIKE", "LOVE", "HAHA", etc.
+  creeLe        DateTime    @default(now())
+  message       MessageChat @relation(fields: [messageId], references: [id])
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
+
+  @@unique([messageId, utilisateurId]) // Un utilisateur ne peut réagir qu'une fois par type sur un message
 }
 
 enum StatutCommentaire {
