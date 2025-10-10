@@ -9,6 +9,7 @@ import { DossiersModule } from './dossiers/dossiers.module';
 import { DocumentsModule } from './documents/documents.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { TachesModule } from './taches/taches.module';
+import { EvenementsModule } from './evenements/evenements.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TachesModule } from './taches/taches.module';
     DocumentsModule,
     CloudinaryModule,
     TachesModule,
+    EvenementsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
