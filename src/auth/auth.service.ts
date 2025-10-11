@@ -232,4 +232,16 @@ export class AuthService {
       throw new UnauthorizedException('Lien invalide ou expiré');
     }
   }
+  // auth.service.ts
+  decodeRefreshToken(refreshToken: string) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return this.jwtService.verify(refreshToken, {
+        secret: jwtConstants.secret,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      throw new UnauthorizedException('Refresh token invalide ou expiré');
+    }
+  }
 }

@@ -1,4 +1,14 @@
-import { Controller, Post, Body, UseGuards, Req, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Get,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import express from 'express'; // ❌ PAS import type ici
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -6,43 +16,96 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 
-@ApiTags('Auth') // Regroupe tous les endpoints de ce controller dans Swagger
+// Interface pour cookies
+interface RequestWithCookies extends express.Request {
+  cookies: { [key: string]: string };
+}
+
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @ApiOperation({ summary: 'Connexion utilisateur avec email et mot de passe' })
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
     const user = await this.authService.validateUser(
       loginDto.email,
       loginDto.motDePasse,
     );
-    return this.authService.login(user);
+
+    const { access_token, refresh_token } = await this.authService.login(user);
+
+    res.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return { access_token, user };
   }
 
   @ApiOperation({ summary: 'Déconnexion utilisateur' })
+  @Post('logout')
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  @Post('logout')
-  async logout(@Req() req: any) {
+  async logout(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    return this.authService.logout({ id: req.user.id, email: req.user.email });
+    await this.authService.logout({ id: req.user.id, email: req.user.email });
+
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    return { message: 'Déconnexion réussie' };
   }
 
   @ApiOperation({ summary: 'Rafraîchir le token JWT' })
   @Post('refresh')
-  async refresh(@Body() body: RefreshTokenDto) {
-    return this.authService.refreshToken(body.userId, body.refreshToken);
+  @Post('refresh')
+  async refresh(
+    @Req() req: RequestWithCookies,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    const refreshToken = req.cookies['refresh_token'];
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token manquant');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const payload = await this.authService.decodeRefreshToken(refreshToken);
+
+    const { access_token } = await this.authService.refreshToken(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+      payload.sub, // userId
+      refreshToken, // refreshToken
+    );
+
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return { access_token };
   }
 
   @ApiOperation({ summary: 'Créer un nouvel utilisateur (admin seulement)' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   @Post('register')
-  async register(@Req() req, @Body() dto: RegisterDto) {
+  async register(@Req() req: any, @Body() dto: RegisterDto) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
     return this.authService.register(req.user, dto);
   }

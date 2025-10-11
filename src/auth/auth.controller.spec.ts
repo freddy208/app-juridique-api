@@ -29,7 +29,22 @@ describe('AuthController', () => {
     me: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    decodeRefreshToken: jest.fn(), // <-- ajouté
   };
+  const mockResponse = () => {
+    const res: any = {};
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    res.cookie = jest.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    res.clearCookie = jest.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return res;
+  };
+
+  const mockRequest = (cookies = {}) => ({
+    cookies,
+    user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -57,8 +72,10 @@ describe('AuthController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('login should return access_token and refresh_token', async () => {
+  it('login should return access_token and user', async () => {
     const loginDto = { email: 'test@test.com', motDePasse: '1234' };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const res = mockResponse();
 
     (authService.validateUser as jest.Mock).mockResolvedValue({
       id: '1',
@@ -71,58 +88,62 @@ describe('AuthController', () => {
       refresh_token: 'fake-refresh-token',
     });
 
-    const result = await controller.login(loginDto);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const result = await controller.login(loginDto, res);
 
     expect(result).toEqual({
       access_token: 'fake-access-token',
-      refresh_token: 'fake-refresh-token',
+      user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
     });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.validateUser).toHaveBeenCalledWith(
-      'test@test.com',
-      '1234',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(res.cookie).toHaveBeenCalledWith(
+      'refresh_token',
+      'fake-refresh-token',
+      expect.any(Object),
     );
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.login).toHaveBeenCalledWith({
-      id: '1',
-      email: 'test@test.com',
-      role: 'ADMIN',
-    });
   });
 
   it('logout should return success message', async () => {
+    const req = mockRequest();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const res = mockResponse();
+
     (authService.logout as jest.Mock).mockResolvedValue({
       message: 'Déconnexion réussie',
     });
 
-    const mockReq = {
-      user: { id: '1', email: 'test@test.com' },
-    };
-
-    const result = await controller.logout(mockReq as any);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const result = await controller.logout(req as any, res);
 
     expect(result).toEqual({ message: 'Déconnexion réussie' });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.logout).toHaveBeenCalledWith({
-      id: '1',
-      email: 'test@test.com',
-    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.any(Object),
+    );
   });
 
   it('refresh should return new access_token', async () => {
-    const body = { userId: '1', refreshToken: 'valid-refresh-token' };
+    const req = mockRequest({ refresh_token: 'valid-refresh-token' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const res = mockResponse();
 
     (authService.refreshToken as jest.Mock).mockResolvedValue({
       access_token: 'new-access-token',
     });
+    (authService.decodeRefreshToken as jest.Mock).mockResolvedValue({
+      sub: '1',
+    });
 
-    const result = await controller.refresh(body);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const result = await controller.refresh(req as any, res);
 
     expect(result).toEqual({ access_token: 'new-access-token' });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.refreshToken).toHaveBeenCalledWith(
-      '1',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(res.cookie).toHaveBeenCalledWith(
+      'refresh_token',
       'valid-refresh-token',
+      expect.any(Object),
     );
   });
 
