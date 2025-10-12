@@ -11,8 +11,8 @@ import { UploadDocumentDto } from './dto/upload-document.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
-import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
+import { CreateDocumentCommentDto } from './dto/create-document-comment.dto';
+import { UpdateDocumentCommentDto } from './dto/update-document-comment.dto';
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -534,7 +534,7 @@ export class DocumentsService {
    */
   async addCommentToDocument(
     documentId: string,
-    dto: CreateCommentDto,
+    dto: CreateDocumentCommentDto,
     utilisateurId: string,
   ): Promise<
     Commentaire & {
@@ -577,7 +577,7 @@ export class DocumentsService {
   async updateComment(
     documentId: string,
     commentId: string,
-    dto: UpdateCommentDto,
+    dto: UpdateDocumentCommentDto,
     utilisateurId: string,
   ): Promise<
     Commentaire & {

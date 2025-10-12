@@ -4,8 +4,8 @@ import { DocumentsService } from './documents.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
-import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
+import { CreateCommentDto } from './dto/create-document-comment.dto';
+import { UpdateCommentDto } from './dto/update-document-comment.dto';
 import { FilterDocumentDto } from './dto/filter-document.dto';
 
 const mockDocumentsService = () => ({

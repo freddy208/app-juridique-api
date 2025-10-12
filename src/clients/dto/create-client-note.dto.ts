@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-export class CreateNoteDto {
+export class CreateClientNoteDto {
   @ApiProperty({ description: 'Contenu de la note' })
   @IsNotEmpty()
   @IsString()

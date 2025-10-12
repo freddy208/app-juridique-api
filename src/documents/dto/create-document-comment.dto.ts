@@ -2,7 +2,7 @@
 import { IsNotEmpty, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateCommentDto {
+export class CreateDocumentCommentDto {
   @ApiProperty({
     description: 'Contenu du commentaire',
     example: 'Ceci est un commentaire interne sur le document',

@@ -26,8 +26,8 @@ import { UpdateDossierDto } from './dto/update-dossier.dto';
 import { UpdateDossierStatusDto } from './dto/update-dossier-status.dto';
 import { Request } from 'express';
 import { User } from '../auth/decorators/user.decorator';
-import { CreateNoteDto } from './dto/create-note.dto';
-import { UpdateNoteDto } from './dto/update-note.dto';
+import { CreateDossierNoteDto } from './dto/create-dossier-note.dto';
+import { UpdateDossierNoteDto } from './dto/update-dossier-note.dto';
 import { AssignDossierDto } from './dto/assign-dossier.dto';
 
 @ApiTags('dossiers')
@@ -173,7 +173,7 @@ export class DossiersController {
   @ApiParam({ name: 'id', description: 'ID du dossier' })
   async addNote(
     @Param('id') dossierId: string,
-    @Body() createNoteDto: CreateNoteDto,
+    @Body() createNoteDto: CreateDossierNoteDto,
     @User('id') utilisateurId: string,
   ) {
     return this.dossiersService.addNote(
@@ -191,7 +191,7 @@ export class DossiersController {
   async updateNote(
     @Param('id') dossierId: string,
     @Param('noteId') noteId: string,
-    @Body() updateNoteDto: UpdateNoteDto,
+    @Body() updateNoteDto: UpdateDossierNoteDto,
   ) {
     return this.dossiersService.updateNote(dossierId, noteId, updateNoteDto);
   }

@@ -2,7 +2,7 @@
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export class UpdateCommentDto {
+export class UpdateDocumentCommentDto {
   @ApiPropertyOptional({ description: 'Nouveau contenu du commentaire' })
   @IsOptional()
   @IsString()

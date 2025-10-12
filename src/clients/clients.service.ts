@@ -3,8 +3,8 @@ import { PrismaService } from '../prisma.service';
 import { FilterClientDto } from './dto/filter-client.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
-import { CreateNoteDto } from './dto/create-note.dto';
-import { UpdateNoteDto } from './dto/update-note.dto';
+import { CreateClientNoteDto } from './dto/create-client-note.dto';
+import { UpdateClientNoteDto } from './dto/update-client-note.dto';
 import { CreateCorrespondanceDto } from './dto/create-correspondance.dto';
 import { UpdateCorrespondanceDto } from './dto/update-correspondance.dto';
 import {
@@ -293,7 +293,7 @@ export class ClientsService {
   async createNote(
     clientId: string,
     utilisateurId: string,
-    dto: CreateNoteDto,
+    dto: CreateClientNoteDto,
   ) {
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
@@ -333,7 +333,11 @@ export class ClientsService {
   }
 
   // Modifier une note
-  async updateNote(noteId: string, utilisateurId: string, dto: UpdateNoteDto) {
+  async updateNote(
+    noteId: string,
+    utilisateurId: string,
+    dto: UpdateClientNoteDto,
+  ) {
     const note = await this.prisma.note.findUnique({ where: { id: noteId } });
     if (!note) {
       throw new NotFoundException(`Note avec l'id ${noteId} introuvable`);

@@ -5,8 +5,8 @@ import { FilterDossierDto } from './dto/filter-dossier.dto';
 import { Prisma, StatutDossier, StatutEvenement } from '@prisma/client';
 import { CreateDossierDto } from './dto/create-dossier.dto';
 import { UpdateDossierDto } from './dto/update-dossier.dto';
-import { CreateNoteDto } from './dto/create-note.dto';
-import { UpdateNoteDto } from './dto/update-note.dto';
+import { CreateDossierNoteDto } from './dto/create-dossier-note.dto';
+import { UpdateDossierNoteDto } from './dto/update-dossier-note.dto';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 
@@ -559,7 +559,7 @@ export class DossiersService {
   // ✅ Ajouter une note interne
   async addNote(
     dossierId: string,
-    createNoteDto: CreateNoteDto,
+    createNoteDto: CreateDossierNoteDto,
     utilisateurId: string,
   ) {
     // Vérifier que le dossier existe et n'est pas supprimé
@@ -589,7 +589,7 @@ export class DossiersService {
   async updateNote(
     dossierId: string,
     noteId: string,
-    updateNoteDto: UpdateNoteDto,
+    updateNoteDto: UpdateDossierNoteDto,
   ) {
     // Vérifier que la note existe et est active
     const note = await this.prisma.note.findUnique({

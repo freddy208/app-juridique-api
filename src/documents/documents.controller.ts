@@ -32,8 +32,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { User } from '../auth/decorators/user.decorator';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
-import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
+import { CreateDocumentCommentDto } from './dto/create-document-comment.dto';
+import { UpdateDocumentCommentDto } from './dto/update-document-comment.dto';
 
 @ApiTags('documents')
 @ApiBearerAuth('JWT-auth')
@@ -298,7 +298,7 @@ export class DocumentsController {
   @ApiBadRequestResponse({ description: 'Requête invalide' })
   async addComment(
     @Param('id') id: string,
-    @Body() dto: CreateCommentDto,
+    @Body() dto: CreateDocumentCommentDto,
     @User() user: { id: string },
   ) {
     const utilisateurId = user?.id;
@@ -332,7 +332,7 @@ export class DocumentsController {
   async updateComment(
     @Param('id') id: string,
     @Param('commentId') commentId: string,
-    @Body() dto: UpdateCommentDto,
+    @Body() dto: UpdateDocumentCommentDto,
     @User() user: { id: string },
   ) {
     return this.documentsService.updateComment(id, commentId, dto, user.id);

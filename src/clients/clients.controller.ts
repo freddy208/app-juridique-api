@@ -26,8 +26,8 @@ import { UpdateClientStatusDto } from './dto/update-client-status.dto';
 import { FilterDossierDto } from './dto/filter-dossier.dto';
 import { FilterDocumentDto } from './dto/filter-document.dto';
 import { FilterNoteDto } from './dto/filter-note.dto';
-import { CreateNoteDto } from './dto/create-note.dto';
-import { UpdateNoteDto } from './dto/update-note.dto';
+import { CreateClientNoteDto } from './dto/create-client-note.dto';
+import { UpdateClientNoteDto } from './dto/update-client-note.dto';
 import { User } from '../auth/decorators/user.decorator';
 import { CreateCorrespondanceDto } from './dto/create-correspondance.dto';
 import { UpdateCorrespondanceDto } from './dto/update-correspondance.dto';
@@ -125,7 +125,7 @@ export class ClientsController {
   @ApiParam({ name: 'id', description: 'ID du client' })
   async addNote(
     @Param('id') clientId: string,
-    @Body() dto: CreateNoteDto,
+    @Body() dto: CreateClientNoteDto,
     @User('id') utilisateurId: string,
   ) {
     return this.clientsService.createNote(clientId, utilisateurId, dto);
@@ -136,7 +136,7 @@ export class ClientsController {
   @ApiParam({ name: 'noteId', description: 'ID de la note à modifier' })
   async editNote(
     @Param('noteId') noteId: string,
-    @Body() dto: UpdateNoteDto,
+    @Body() dto: UpdateClientNoteDto,
     @User('id') utilisateurId: string,
   ) {
     return this.clientsService.updateNote(noteId, utilisateurId, dto);
