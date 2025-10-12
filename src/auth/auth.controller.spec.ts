@@ -3,11 +3,9 @@ import { AuthController } from '../auth/auth.controller';
 import { AuthService } from '../auth/auth.service';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
-import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { jwtConstants } from './constants';
 import { RegisterDto } from './dto/register.dto';
 import { RoleUtilisateur } from '../enums/role-utilisateur.enum';
-//import { RefreshTokenGuard } from '../auth/guards/refresh-token.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -29,30 +27,19 @@ describe('AuthController', () => {
     me: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
-    decodeRefreshToken: jest.fn(), // <-- ajouté
-  };
-  const mockResponse = () => {
-    const res: any = {};
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    res.cookie = jest.fn();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    res.clearCookie = jest.fn();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return res;
+    decodeRefreshToken: jest.fn(),
   };
 
-  const mockRequest = (cookies = {}) => ({
-    cookies,
-    user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
+  const mockRequest = (
+    user = { id: '1', email: 'test@test.com', role: 'ADMIN' },
+  ) => ({
+    user,
   });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        AuthService,
-        PrismaService,
-        RefreshTokenGuard, // <== ajouté
         { provide: AuthService, useValue: mockAuthService },
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -65,17 +52,15 @@ describe('AuthController', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
-    authService = module.get<AuthService>(AuthService); //
+    authService = module.get<AuthService>(AuthService);
   });
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
 
-  it('login should return access_token and user', async () => {
+  it('login should return access_token, refresh_token and user', async () => {
     const loginDto = { email: 'test@test.com', motDePasse: '1234' };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const res = mockResponse();
 
     (authService.validateUser as jest.Mock).mockResolvedValue({
       id: '1',
@@ -88,63 +73,50 @@ describe('AuthController', () => {
       refresh_token: 'fake-refresh-token',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    const result = await controller.login(loginDto, res);
+    const result = await controller.login(loginDto);
 
     expect(result).toEqual({
       access_token: 'fake-access-token',
+      refresh_token: 'fake-refresh-token',
       user: { id: '1', email: 'test@test.com', role: 'ADMIN' },
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(res.cookie).toHaveBeenCalledWith(
-      'refresh_token',
-      'fake-refresh-token',
-      expect.any(Object),
-    );
   });
 
   it('logout should return success message', async () => {
     const req = mockRequest();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const res = mockResponse();
 
     (authService.logout as jest.Mock).mockResolvedValue({
       message: 'Déconnexion réussie',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    const result = await controller.logout(req as any, res);
+    const result = await controller.logout(req as any);
 
     expect(result).toEqual({ message: 'Déconnexion réussie' });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(res.clearCookie).toHaveBeenCalledWith(
-      'refresh_token',
-      expect.any(Object),
-    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.logout).toHaveBeenCalledWith({
+      id: '1',
+      email: 'test@test.com',
+    });
   });
 
   it('refresh should return new access_token', async () => {
-    const req = mockRequest({ refresh_token: 'valid-refresh-token' });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const res = mockResponse();
+    const refreshToken = 'valid-refresh-token';
 
-    (authService.refreshToken as jest.Mock).mockResolvedValue({
-      access_token: 'new-access-token',
-    });
     (authService.decodeRefreshToken as jest.Mock).mockResolvedValue({
       sub: '1',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    const result = await controller.refresh(req as any, res);
+    (authService.refreshToken as jest.Mock).mockResolvedValue({
+      access_token: 'new-access-token',
+    });
+
+    const result = await controller.refresh(refreshToken);
 
     expect(result).toEqual({ access_token: 'new-access-token' });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(res.cookie).toHaveBeenCalledWith(
-      'refresh_token',
-      'valid-refresh-token',
-      expect.any(Object),
-    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.decodeRefreshToken).toHaveBeenCalledWith(refreshToken);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.refreshToken).toHaveBeenCalledWith('1', refreshToken);
   });
 
   it('register should create a new user and return tokens', async () => {
@@ -153,7 +125,7 @@ describe('AuthController', () => {
       nom: 'Dupont',
       email: 'new@test.com',
       motDePasse: '123456',
-      role: RoleUtilisateur.ADMIN, // ou RoleUtilisateur.USER selon ton enum
+      role: RoleUtilisateur.ADMIN,
     };
 
     const fakeReq = { user: { id: 'creator-1', email: 'admin@test.com' } };
@@ -175,6 +147,7 @@ describe('AuthController', () => {
       registerDto,
     );
   });
+
   it('me should return the current logged user info', async () => {
     const fakeReq = {
       user: { id: '1', email: 'user@test.com', role: 'ADMIN' },
@@ -199,10 +172,9 @@ describe('AuthController', () => {
     });
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(authService.me).toHaveBeenCalledWith('1'); // req.user.id
+    expect(authService.me).toHaveBeenCalledWith('1');
   });
 
-  //forgot password
   it('forgotPassword should call service and return message', async () => {
     const body = { email: 'user@test.com' };
 
@@ -220,6 +192,7 @@ describe('AuthController', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.forgotPassword).toHaveBeenCalledWith('user@test.com');
   });
+
   it('resetPassword should call service and return message', async () => {
     const body = { token: 'valid-token', nouveauMotDePasse: 'new-password' };
 
