@@ -5,10 +5,8 @@ import {
   UseGuards,
   Req,
   Get,
-  Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import express from 'express'; // ❌ PAS import type ici
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -17,10 +15,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
-// Interface pour cookies
-interface RequestWithCookies extends express.Request {
-  cookies: { [key: string]: string };
-}
+// Interface pour cookie
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -29,77 +24,44 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Connexion utilisateur avec email et mot de passe' })
   @Post('login')
-  async login(
-    @Body() loginDto: LoginDto,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
+  async login(@Body() loginDto: LoginDto) {
     const user = await this.authService.validateUser(
       loginDto.email,
       loginDto.motDePasse,
     );
 
     const { access_token, refresh_token } = await this.authService.login(user);
-    const maxAge = loginDto.rememberMe
-      ? 30 * 24 * 60 * 60 * 1000 // 30 jours
-      : 7 * 24 * 60 * 60 * 1000; // 7 jours par défaut
 
-    res.cookie('refresh_token', refresh_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge,
-    });
-
-    return { access_token, user };
+    // Plus de cookie
+    return { access_token, refresh_token, user };
   }
 
   @ApiOperation({ summary: 'Déconnexion utilisateur' })
   @Post('logout')
+  @Post('logout')
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async logout(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
+  async logout(@Req() req: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     await this.authService.logout({ id: req.user.id, email: req.user.email });
-
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-    });
-
     return { message: 'Déconnexion réussie' };
   }
 
   @ApiOperation({ summary: 'Rafraîchir le token JWT' })
   @Post('refresh')
   @Post('refresh')
-  async refresh(
-    @Req() req: RequestWithCookies,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
-    const refreshToken = req.cookies['refresh_token'];
+  async refresh(@Body('refresh_token') refreshToken: string) {
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token manquant');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const payload = await this.authService.decodeRefreshToken(refreshToken);
-
     const { access_token } = await this.authService.refreshToken(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-      payload.sub, // userId
-      refreshToken, // refreshToken
+      payload.sub,
+      refreshToken,
     );
-
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
 
     return { access_token };
   }
