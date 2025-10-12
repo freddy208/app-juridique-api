@@ -5,10 +5,21 @@ import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
-  app.use(cookieParser()); //
+  const app = await NestFactory.create(AppModule);
 
-  // Préfixe global (optionnel)
+  // ⚡ Configurer CORS correctement
+  app.enableCors({
+    origin: [
+      'http://localhost:3000', // pour dev local
+      'https://app-juridique-frontend.vercel.app', // URL de production
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // autorise les cookies / JWT
+  });
+
+  app.use(cookieParser());
+
+  // Préfixe global
   app.setGlobalPrefix('api/v1');
 
   // Validation automatique des DTOs
@@ -36,7 +47,7 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  //  Rediriger `/` vers `/docs`
+  // Rediriger `/` vers `/docs`
   const httpAdapter = app.getHttpAdapter();
   httpAdapter.get('/', (req, res) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -45,11 +56,11 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(` API running: http://localhost:${port}`);
+  console.log(`API running: http://localhost:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
 
 bootstrap().catch((err) => {
-  console.error(' Error during bootstrap:', err);
+  console.error('Error during bootstrap:', err);
   process.exit(1);
 });
