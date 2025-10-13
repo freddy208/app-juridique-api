@@ -32,7 +32,7 @@ export class AuthController {
 
     const { access_token, refresh_token } = await this.authService.login(user);
 
-    // Plus de cookie
+    // Plus de cookie a utiliser
     return { access_token, refresh_token, user };
   }
 
