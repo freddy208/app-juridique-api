@@ -13,6 +13,7 @@ import { EvenementsModule } from './evenements/evenements.module';
 import { MessagesModule } from './messages/messages.module';
 import { FacturesModule } from './factures/factures.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { PermissionsModule } from './permissions/permissions.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     MessagesModule,
     FacturesModule,
     DashboardModule,
+    PermissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
