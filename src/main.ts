@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
-import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,14 +9,14 @@ async function bootstrap() {
   // ⚡ Configurer CORS correctement
   app.enableCors({
     origin: [
-      'http://localhost:3000', // pour dev local
-      'https://app-juridique-frontend.vercel.app', // URL de production
+      'http://localhost:3000',
+      'https://app-juridique-frontend.vercel.app',
     ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // autorise les cookies / JWT
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.use(cookieParser());
+  //app.use(cookieParser());
 
   // Préfixe global
   app.setGlobalPrefix('api/v1');
