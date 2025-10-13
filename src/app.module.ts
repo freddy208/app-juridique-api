@@ -12,6 +12,7 @@ import { TachesModule } from './taches/taches.module';
 import { EvenementsModule } from './evenements/evenements.module';
 import { MessagesModule } from './messages/messages.module';
 import { FacturesModule } from './factures/factures.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { FacturesModule } from './factures/factures.module';
     EvenementsModule,
     MessagesModule,
     FacturesModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
