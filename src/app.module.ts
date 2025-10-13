@@ -11,6 +11,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { TachesModule } from './taches/taches.module';
 import { EvenementsModule } from './evenements/evenements.module';
 import { MessagesModule } from './messages/messages.module';
+import { FacturesModule } from './factures/factures.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MessagesModule } from './messages/messages.module';
     TachesModule,
     EvenementsModule,
     MessagesModule,
+    FacturesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
