@@ -57,13 +57,11 @@ export class AuthController {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const payload = await this.authService.decodeRefreshToken(refreshToken);
-    const { access_token } = await this.authService.refreshToken(
+    return await this.authService.refreshToken(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
       payload.sub,
       refreshToken,
     );
-
-    return { access_token };
   }
 
   @ApiOperation({ summary: 'Créer un nouvel utilisateur (admin seulement)' })

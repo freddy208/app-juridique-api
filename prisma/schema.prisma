@@ -33,6 +33,8 @@ model Utilisateur {
   tachesCreees         Tache[]               @relation("CreateurTache")
   Commentaire          Commentaire[]
   ReactionMessage      ReactionMessage[]
+  Notification         Notification[]
+  Fichier              Fichier[]
 }
 
 model Client {
@@ -364,6 +366,51 @@ model ReactionMessage {
   utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
 
   @@unique([messageId, utilisateurId]) // Un utilisateur ne peut réagir qu'une fois par type sur un message
+}
+
+model Notification {
+  id            String           @id @default(uuid())
+  utilisateurId String
+  titre         String
+  message       String
+  type          TypeNotification // INFO, ALERTE, URGENT
+  lien          String? // lien vers ressource
+  lu            Boolean          @default(false)
+  creeLe        DateTime         @default(now())
+  utilisateur   Utilisateur      @relation(fields: [utilisateurId], references: [id])
+}
+
+enum TypeNotification {
+  INFO
+  ALERTE
+  URGENT
+  TACHE
+  MESSAGE
+  FACTURE
+  AUDIENCE
+}
+
+// Pour les fichiers (métadonnées Supabase)
+model Fichier {
+  id          String      @id @default(uuid())
+  nom         String
+  type        String // MIME type
+  taille      Int // en bytes
+  url         String // URL Supabase Storage
+  bucket      String // nom bucket Supabase
+  path        String // chemin dans bucket
+  uploadePar  String
+  creeLe      DateTime    @default(now())
+  utilisateur Utilisateur @relation(fields: [uploadePar], references: [id])
+}
+
+// Pour les paramètres système
+model Parametre {
+  id        String   @id @default(uuid())
+  cle       String   @unique
+  valeur    String
+  type      String // STRING, NUMBER, BOOLEAN, JSON
+  modifieLe DateTime @updatedAt
 }
 
 enum StatutCommentaire {
