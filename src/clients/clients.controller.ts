@@ -205,4 +205,53 @@ export class ClientsController {
       utilisateurId,
     );
   }
+  // nouvelles routes generer par claude AI
+  // 1. Suppression en masse
+  @Delete()
+  @ApiOperation({ summary: 'Supprimer plusieurs clients (bulk soft delete)' })
+  async bulkDelete(@Body() body: { ids: string[] }) {
+    return this.clientsService.bulkDelete(body.ids);
+  }
+  // 2. Export Excel
+  @Get('export')
+  @ApiOperation({ summary: 'Exporter la liste des clients en Excel' })
+  async exportClients(@Query() filters: FilterClientDto) {
+    const clients = await this.clientsService.exportToExcel(filters);
+    // Transformation des données pour Excel
+    return clients.map((client) => ({
+      Prénom: client.prenom,
+      Nom: client.nom,
+      Entreprise: client.nomEntreprise || 'N/A',
+      Email: client.email || 'N/A',
+      Téléphone: client.telephone || 'N/A',
+      Adresse: client.adresse || 'N/A',
+      Statut: client.statut,
+      'Nb Dossiers': client.dossiers?.length || 0,
+      'CA Total':
+        client.factures?.reduce((sum, f) => sum + Number(f.montant), 0) || 0,
+      'Créé le': client.creeLe.toISOString(),
+    }));
+  }
+  // 4. Audit du client
+  @Get(':id/audit')
+  @ApiOperation({ summary: "Historique d'audit d'un client" })
+  @ApiParam({ name: 'id', description: 'ID du client', type: String })
+  async getAudit(
+    @Param('id') id: string,
+    @Query('skip') skip?: number,
+    @Query('take') take?: number,
+  ) {
+    return this.clientsService.findAuditByClient(id, skip, take);
+  }
+  // 3. Factures du client
+  @Get(':id/factures')
+  @ApiOperation({ summary: "Lister les factures d'un client" })
+  @ApiParam({ name: 'id', description: 'ID du client', type: String })
+  async getFactures(
+    @Param('id') id: string,
+    @Query('skip') skip?: number,
+    @Query('take') take?: number,
+  ) {
+    return this.clientsService.findFacturesByClient(id, skip, take);
+  }
 }

@@ -14,6 +14,7 @@ import {
   StatutDocument,
   StatutNote,
   StatutCorrespondance,
+  StatutFacture,
 } from '@prisma/client';
 
 @Injectable()
@@ -163,6 +164,10 @@ export class ClientsService {
     skip?: number,
     take?: number,
   ) {
+    const where: Prisma.DossierWhereInput = {
+      clientId,
+      statut: { not: StatutDossier.SUPPRIME }, // ✅ IMPORTANT
+    };
     const clientExists = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -172,11 +177,6 @@ export class ClientsService {
 
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
-
-    const where: Prisma.DossierWhereInput = { clientId };
-    if (statutDossier) {
-      where.statut = statutDossier;
-    }
     const totalCount = await this.prisma.dossier.count({ where });
     const data = await this.prisma.dossier.findMany({
       where,
@@ -214,6 +214,10 @@ export class ClientsService {
     skip?: number,
     take?: number,
   ) {
+    const where: Prisma.DocumentWhereInput = {
+      dossier: { clientId },
+      statut: { not: StatutDocument.SUPPRIME }, // ✅ Ajouter cette ligne
+    };
     const clientExists = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -223,11 +227,6 @@ export class ClientsService {
 
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
-
-    const where: Prisma.DocumentWhereInput = {
-      dossier: { clientId }, // Tous les documents liés aux dossiers du client
-      ...(statut && { statut }),
-    };
 
     const totalCount = await this.prisma.document.count({ where });
     const data = await this.prisma.document.findMany({
@@ -255,6 +254,10 @@ export class ClientsService {
 
   // src/clients/clients.service.ts
   async findNotesByClient(clientId: string, skip?: number, take?: number) {
+    const where: Prisma.NoteWhereInput = {
+      clientId,
+      statut: StatutNote.ACTIF, // ✅ DÉJÀ PRÉSENT
+    };
     const clientExists = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -264,8 +267,6 @@ export class ClientsService {
 
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
-
-    const where: Prisma.NoteWhereInput = { clientId, statut: StatutNote.ACTIF };
 
     const totalCount = await this.prisma.note.count({ where });
     const data = await this.prisma.note.findMany({
@@ -390,6 +391,10 @@ export class ClientsService {
     skip?: number,
     take?: number,
   ) {
+    const where = {
+      clientId,
+      statut: StatutCorrespondance.ACTIF, // ✅ DÉJÀ PRÉSENT
+    };
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -399,8 +404,6 @@ export class ClientsService {
 
     const effectiveSkip = skip ?? 0;
     const effectiveTake = take ?? 10;
-
-    const where = { clientId, statut: StatutCorrespondance.ACTIF };
 
     const totalCount = await this.prisma.correspondance.count({ where });
 
@@ -514,5 +517,137 @@ export class ClientsService {
       where: { id: correspondanceId },
       data: { statut: StatutCorrespondance.SUPPRIME },
     });
+  }
+  // nouveau endpoint generer par claude
+  // ========================================
+  // AJOUTS À FAIRE DANS client.service.ts
+  // ========================================
+
+  // 1. Suppression en masse
+  async bulkDelete(ids: string[]) {
+    this.logger.log(`🗑️ Suppression en masse de ${ids.length} clients`);
+    const clients = await this.prisma.client.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (clients.length === 0) {
+      throw new NotFoundException('Aucun client trouvé avec ces IDs');
+    }
+
+    // Soft delete en masse
+    return this.prisma.client.updateMany({
+      where: { id: { in: ids } },
+      data: { statut: StatutClient.INACTIF },
+    });
+  }
+
+  // 2. Export Excel
+  async exportToExcel(filters: FilterClientDto) {
+    this.logger.log('📊 Export Excel des clients');
+    const { statut, search, nomEntreprise, email, telephone } = filters;
+    const where: Prisma.ClientWhereInput = {};
+
+    if (statut) where.statut = statut;
+    if (nomEntreprise)
+      where.nomEntreprise = { contains: nomEntreprise, mode: 'insensitive' };
+    if (email) where.email = { contains: email, mode: 'insensitive' };
+    if (telephone)
+      where.telephone = { contains: telephone, mode: 'insensitive' };
+    if (search) {
+      where.OR = [
+        { prenom: { contains: search, mode: 'insensitive' } },
+        { nom: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Récupérer TOUS les clients correspondant aux filtres (sans pagination)
+    return this.prisma.client.findMany({
+      where,
+      include: {
+        dossiers: {
+          where: { statut: { not: StatutDossier.SUPPRIME } },
+        },
+        factures: {
+          where: { statut: { not: StatutFacture.SUPPRIME } },
+        },
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+  }
+
+  // 3. Factures d'un client
+  async findFacturesByClient(clientId: string, skip?: number, take?: number) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 10;
+
+    const where: Prisma.FactureWhereInput = {
+      clientId,
+      statut: { not: StatutFacture.SUPPRIME },
+    };
+
+    const totalCount = await this.prisma.facture.count({ where });
+    const data = await this.prisma.facture.findMany({
+      where,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      include: {
+        dossier: {
+          select: { id: true, numeroUnique: true, titre: true, type: true },
+        },
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+
+    return {
+      totalCount,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      data,
+    };
+  }
+
+  // 4. Audit logs d'un client
+  async findAuditByClient(clientId: string, skip?: number, take?: number) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) {
+      throw new NotFoundException(`Client avec l'id ${clientId} introuvable`);
+    }
+
+    const effectiveSkip = skip ?? 0;
+    const effectiveTake = take ?? 20;
+
+    const where: Prisma.JournalAuditWhereInput = {
+      typeCible: 'CLIENT',
+      cibleId: clientId,
+    };
+
+    const totalCount = await this.prisma.journalAudit.count({ where });
+    const data = await this.prisma.journalAudit.findMany({
+      where,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      include: {
+        utilisateur: {
+          select: { id: true, prenom: true, nom: true, email: true },
+        },
+      },
+      orderBy: { creeLe: 'desc' },
+    });
+
+    return {
+      totalCount,
+      skip: effectiveSkip,
+      take: effectiveTake,
+      data,
+    };
   }
 }

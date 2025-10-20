@@ -343,7 +343,7 @@ describe('ClientsService', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.dossier.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { clientId },
+          where: { clientId, statut: { not: 'SUPPRIME' } },
           skip: 0,
           take: 10,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -429,7 +429,7 @@ describe('ClientsService', () => {
       });
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.document.findMany).toHaveBeenCalledWith({
-        where: { dossier: { clientId } },
+        where: { dossier: { clientId }, statut: { not: 'SUPPRIME' } },
         skip: 0,
         take: 10,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
