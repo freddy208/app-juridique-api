@@ -119,7 +119,7 @@ export class DossiersService {
   /**
    * Créer un dossier avec un numéro unique fiable
    * Format : PREFIX + ANNEE(2 derniers chiffres) + incrément sur 4 chiffres
-   * Exemple : SC25-0001
+   * Exemple : SC25-0001  numero unique pour un sinistre corporel créé en 2025
    */
   async create(createDossierDto: CreateDossierDto) {
     const { titre, type, description, clientId, responsableId, statut } =

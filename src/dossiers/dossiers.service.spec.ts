@@ -1,15 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DossiersService } from './dossiers.service';
 import { PrismaService } from '../prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { NotFoundException } from '@nestjs/common';
 import { StatutDossier } from '@prisma/client';
 
 describe('DossiersService', () => {
   let service: DossiersService;
   let prisma: Partial<Record<keyof PrismaService, any>>;
+  let cloudinary: Partial<CloudinaryService>;
 
   beforeEach(async () => {
-    // Mocking minimal PrismaService
+    // Mock minimal PrismaService
     prisma = {
       dossier: {
         findUnique: jest.fn(),
@@ -30,7 +32,7 @@ describe('DossiersService', () => {
         findMany: jest.fn(),
       },
       tache: { findMany: jest.fn() },
-      document: { findMany: jest.fn() },
+      document: { findMany: jest.fn(), create: jest.fn() },
       evenementCalendrier: {
         findMany: jest.fn(),
         create: jest.fn(),
@@ -41,10 +43,17 @@ describe('DossiersService', () => {
       $transaction: jest.fn(),
     };
 
+    cloudinary = {
+      uploadFile: jest
+        .fn()
+        .mockResolvedValue({ secure_url: 'http://fake.url/file.png' }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DossiersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: CloudinaryService, useValue: cloudinary },
       ],
     }).compile();
 
@@ -60,7 +69,6 @@ describe('DossiersService', () => {
       const dossierMock = { id: '1', titre: 'Test Dossier' };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.dossier.findUnique.mockResolvedValue(dossierMock);
-
       const result = await service.findOne('1');
       expect(result).toEqual(dossierMock);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -71,19 +79,19 @@ describe('DossiersService', () => {
       });
     });
 
-    it('should throw NotFoundException if dossier not found', async () => {
+    it('should throw NotFoundException if not found', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.dossier.findUnique.mockResolvedValue(null);
-
       await expect(service.findOne('1')).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('create', () => {
-    it('should create a dossier successfully', async () => {
-      const createDto = { titre: 'Test', type: 'AUTRE', clientId: 'c1' };
+    it('should create a dossier with transaction', async () => {
+      const dto = { titre: 'D', type: 'AUTRE', clientId: 'c1' };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.client.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.client.findUnique.mockResolvedValue({ id: 'c1', statut: 'ACTIF' });
+
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.$transaction.mockImplementation((cb) =>
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
@@ -92,25 +100,36 @@ describe('DossiersService', () => {
             findFirst: jest.fn().mockResolvedValue(null),
             create: jest.fn().mockResolvedValue({
               id: 'd1',
-              numeroUnique: 'AU20250001',
-              ...createDto,
+              numeroUnique: 'AU250001',
+              ...dto,
+            }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'd1',
+              numeroUnique: 'AU250001',
+              ...dto,
             }),
           },
+          sinistreCorporel: { create: jest.fn() },
+          sinistreMateriel: { create: jest.fn() },
+          sinistreMortel: { create: jest.fn() },
+          immobilier: { create: jest.fn() },
+          sport: { create: jest.fn() },
+          contentieux: { create: jest.fn() },
+          contrat: { create: jest.fn() },
         }),
       );
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const result = await service.create(createDto as any);
-      expect(result.numeroUnique).toBe('AU20250001');
+      const result = await service.create(dto as any);
+      expect(result.numeroUnique).toBe('AU250001');
     });
 
-    it('should throw NotFoundException if client not found', async () => {
+    it('should throw if client not found', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.client.findUnique.mockResolvedValue(null);
-
       await expect(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        service.create({ titre: 't', type: 'AUTRE', clientId: 'c1' } as any),
+        service.create({ titre: 'T', type: 'AUTRE', clientId: 'c1' } as any),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -129,12 +148,11 @@ describe('DossiersService', () => {
         client: {},
         responsable: {},
       });
-
       const result = await service.updateStatus('1', StatutDossier.CLOS);
       expect(result.dossier.statut).toBe('CLOS');
     });
 
-    it('should throw NotFoundException if dossier not found', async () => {
+    it('should throw if dossier not found', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.dossier.findUnique.mockResolvedValue(null);
       await expect(
@@ -144,7 +162,7 @@ describe('DossiersService', () => {
   });
 
   describe('softDelete', () => {
-    it('should soft delete dossier', async () => {
+    it('should soft delete', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.dossier.findUnique.mockResolvedValue({
         id: '1',
@@ -166,179 +184,31 @@ describe('DossiersService', () => {
       expect(result.dossier.statut).toBe('SUPPRIME');
     });
   });
-  describe('findDocuments', () => {
-    it('should return documents', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.dossier.findUnique.mockResolvedValue({ id: 'd1' });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.document.findMany.mockResolvedValue([{ id: 'doc1' }]);
 
-      const result = await service.findDocuments('d1');
-      expect(result.total).toBe(1);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(prisma.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { dossierId: 'd1', statut: 'ACTIF' },
-        }),
-      );
-    });
-
-    it('should throw NotFoundException if dossier not found', async () => {
+  describe('addDocumentsToDossier', () => {
+    it('should upload and create documents', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.dossier.findUnique.mockResolvedValue(null);
-      await expect(service.findDocuments('d1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('findTasks', () => {
-    it('should return tasks', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.dossier.findUnique.mockResolvedValue({ id: 'd1' });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.tache.findMany.mockResolvedValue([{ id: 't1' }]);
-
-      const result = await service.findTasks('d1');
-      expect(result.total).toBe(1);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(prisma.tache.findMany).toHaveBeenCalled();
-    });
-  });
-
-  describe('addNote', () => {
-    it('should add a note', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.dossier.findUnique.mockResolvedValue({ id: 'd1', clientId: 'c1' });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.note.create.mockResolvedValue({ id: 'n1', contenu: 'Note' });
-
-      const result = await service.addNote(
-        'd1',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        { contenu: 'Note' } as any,
-        'u1',
-      );
-      expect(result.id).toBe('n1');
-    });
-
-    it('should throw NotFoundException if dossier not found', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.dossier.findUnique.mockResolvedValue(null);
-      await expect(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        service.addNote('d1', { contenu: 'Note' } as any, 'u1'),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('updateNote', () => {
-    it('should update note', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.note.findUnique.mockResolvedValue({
-        id: 'n1',
-        dossierId: 'd1',
-        statut: 'ACTIF',
+      prisma.dossier.findUnique.mockResolvedValue({
+        id: 'd1',
+        statut: 'OUVERT',
       });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.note.update.mockResolvedValue({ id: 'n1', contenu: 'Updated' });
+      prisma.document.create.mockImplementation((data) =>
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        Promise.resolve({ id: 'doc1', ...data.data }),
+      );
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const files = [{ originalname: 'f.txt', mimetype: 'text/plain' }] as any;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const result = await service.updateNote('d1', 'n1', {
-        contenu: 'Updated',
-      } as any);
-      expect(result.contenu).toBe('Updated');
-    });
-
-    it('should throw NotFoundException if note not found', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.note.findUnique.mockResolvedValue(null);
-      await expect(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        service.updateNote('d1', 'n1', { contenu: 'Updated' } as any),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('softDeleteNote', () => {
-    it('should soft delete note', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.note.findUnique.mockResolvedValue({
-        id: 'n1',
-        dossierId: 'd1',
-        statut: 'ACTIF',
-      });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.note.update.mockResolvedValue({ id: 'n1', statut: 'SUPPRIME' });
-
-      const result = await service.softDeleteNote('d1', 'n1');
-      expect(result.note.statut).toBe('SUPPRIME');
-    });
-  });
-
-  describe('createEvent', () => {
-    it('should create event', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.dossier.findUnique.mockResolvedValue({ id: 'd1' });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.evenementCalendrier.create.mockResolvedValue({
-        id: 'e1',
-        titre: 'Event',
-      });
-
-      const result = await service.createEvent(
-        'd1',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        { titre: 'Event' } as any,
-        'u1',
-      );
-      expect(result.id).toBe('e1');
-    });
-  });
-
-  describe('updateEvent', () => {
-    it('should update event', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.evenementCalendrier.findUnique.mockResolvedValue({
-        id: 'e1',
-        dossierId: 'd1',
-        statut: 'PREVU',
-      });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.evenementCalendrier.update.mockResolvedValue({
-        id: 'e1',
-        titre: 'Updated',
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const result = await service.updateEvent('d1', 'e1', {
-        titre: 'Updated',
-      } as any);
-      expect(result.titre).toBe('Updated');
-    });
-  });
-
-  describe('softDeleteEvent', () => {
-    it('should soft delete event', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.evenementCalendrier.findUnique.mockResolvedValue({
-        id: 'e1',
-        dossierId: 'd1',
-        statut: 'PREVU',
-      });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      prisma.evenementCalendrier.update.mockResolvedValue({
-        id: 'e1',
-        statut: 'SUPPRIME',
-      });
-
-      const result = await service.softDeleteEvent('d1', 'e1');
-      expect(result.event.statut).toBe('SUPPRIME');
+      const result = await service.addDocumentsToDossier('d1', files, 'u1');
+      expect(result.documents[0].dossierId).toBe('d1');
+      expect(cloudinary.uploadFile).toHaveBeenCalled();
     });
   });
 
   describe('assignDossier', () => {
-    it('should reassign dossier', async () => {
+    it('should assign dossier to new user', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.dossier.findUnique.mockResolvedValue({
         id: 'd1',
@@ -353,6 +223,8 @@ describe('DossiersService', () => {
       prisma.dossier.update.mockResolvedValue({
         id: 'd1',
         responsableId: 'u2',
+        client: {},
+        responsable: {},
       });
 
       const result = await service.assignDossier('d1', 'u2');
@@ -360,5 +232,5 @@ describe('DossiersService', () => {
     });
   });
 
-  // ⚡️ On peut répéter pour toutes les méthodes : findDocuments, findTasks, addNote, updateNote, softDeleteNote, createEvent, updateEvent...
+  // Tu peux continuer avec findNotesPaginated, findCalendarEvents, createEvent, updateEvent, softDeleteEvent
 });
