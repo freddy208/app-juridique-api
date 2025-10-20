@@ -7,7 +7,7 @@ import {
   IsEnum,
   Length,
 } from 'class-validator';
-import { StatutTache } from '@prisma/client';
+import { StatutTache, TachePriorite } from '@prisma/client';
 
 export class CreateTacheDto {
   @ApiProperty({ description: 'Titre de la tâche' })
@@ -39,4 +39,12 @@ export class CreateTacheDto {
   @IsOptional()
   @IsEnum(StatutTache)
   statut?: StatutTache;
+  @ApiPropertyOptional({
+    enum: TachePriorite,
+    description: 'Priorité de la tâche (BASSE, MOYENNE, HAUTE, URGENTE)',
+    default: TachePriorite.MOYENNE,
+  })
+  @IsOptional()
+  @IsEnum(TachePriorite)
+  priorite?: TachePriorite;
 }

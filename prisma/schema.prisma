@@ -80,13 +80,14 @@ model Dossier {
   sinistreMortel   SinistreMortel?
   sport            Sport?
   taches           Tache[]
+  Autre            Autre?
 }
 
 model SinistreCorporel {
   id              String          @id @default(uuid())
   dossierId       String          @unique
-  dateAccident    DateTime
-  lieuAccident    String
+  dateAccident    DateTime?
+  lieuAccident    String?
   numeroPvPolice  String?
   hopital         String?
   rapportMedical  String?
@@ -103,8 +104,8 @@ model SinistreCorporel {
 model SinistreMateriel {
   id                String             @id @default(uuid())
   dossierId         String             @unique
-  dateAccident      DateTime
-  lieuAccident      String
+  dateAccident      DateTime?
+  lieuAccident      String?
   categorieVehicule CategorieVehicule?
   marqueVehicule    String?
   modeleVehicule    String?
@@ -121,9 +122,9 @@ model SinistreMateriel {
 }
 
 model SinistreMortel {
-  id                    String   @id @default(uuid())
-  dossierId             String   @unique
-  dateDeces             DateTime
+  id                    String    @id @default(uuid())
+  dossierId             String    @unique
+  dateDeces             DateTime?
   lieuDeces             String?
   certificatDeces       String?
   certificatMedicoLegal String?
@@ -131,15 +132,15 @@ model SinistreMortel {
   causeDeces            String?
   ayantsDroit           Json?
   indemniteReclamee     Decimal?
-  creeLe                DateTime @default(now())
-  modifieLe             DateTime @updatedAt
-  dossier               Dossier  @relation(fields: [dossierId], references: [id])
+  creeLe                DateTime  @default(now())
+  modifieLe             DateTime  @updatedAt
+  dossier               Dossier   @relation(fields: [dossierId], references: [id])
 }
 
 model Immobilier {
   id               String         @id @default(uuid())
   dossierId        String         @unique
-  adresseBien      String
+  adresseBien      String?
   numeroTitre      String?
   numeroCadastre   String?
   referenceNotaire String?
@@ -170,9 +171,9 @@ model Sport {
 model Contrat {
   id               String    @id @default(uuid())
   dossierId        String    @unique
-  partieA          String
-  partieB          String
-  dateEffet        DateTime
+  partieA          String?
+  partieB          String?
+  dateEffet        DateTime?
   dateExpiration   DateTime?
   valeurContrat    Decimal?
   loiApplicable    String?   @default("CAMEROUN")
@@ -203,6 +204,15 @@ model Contentieux {
   dossier         Dossier         @relation(fields: [dossierId], references: [id])
 }
 
+model Autre {
+  id        String   @id @default(uuid())
+  dossierId String   @unique
+  champs    Json? // pour stocker dynamiquement les infos spécifiques
+  creeLe    DateTime @default(now())
+  modifieLe DateTime @updatedAt
+  dossier   Dossier  @relation(fields: [dossierId], references: [id])
+}
+
 model Document {
   id           String         @id @default(uuid())
   dossierId    String
@@ -226,6 +236,7 @@ model Tache {
   description String?
   assigneeId  String?
   creeParId   String
+  priorite    TachePriorite @default(MOYENNE) // <-- ajouté
   dateLimite  DateTime?
   statut      StatutTache   @default(A_FAIRE)
   creeLe      DateTime      @default(now())
@@ -426,6 +437,13 @@ enum RoleUtilisateur {
   ASSISTANT
   JURISTE
   STAGIAIRE
+}
+
+enum TachePriorite {
+  BASSE
+  MOYENNE
+  HAUTE
+  URGENTE
 }
 
 enum StatutUtilisateur {

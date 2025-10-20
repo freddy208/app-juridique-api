@@ -10,6 +10,9 @@ import {
   Put,
   Patch,
   Delete,
+  UseInterceptors,
+  UploadedFiles,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -17,6 +20,8 @@ import {
   ApiTags,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { DossiersService } from './dossiers.service';
 import { FilterDossierDto } from './dto/filter-dossier.dto';
@@ -29,6 +34,7 @@ import { User } from '../auth/decorators/user.decorator';
 import { CreateDossierNoteDto } from './dto/create-dossier-note.dto';
 import { UpdateDossierNoteDto } from './dto/update-dossier-note.dto';
 import { AssignDossierDto } from './dto/assign-dossier.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('dossiers')
 @ApiBearerAuth('JWT-auth')
@@ -226,6 +232,36 @@ export class DossiersController {
     return this.dossiersService.assignDossier(
       id,
       assignDto.nouveauResponsableId,
+    );
+  }
+  // gestion de document à venir
+  @Post(':id/documents')
+  @UseInterceptors(FilesInterceptor('files'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Upload de plusieurs documents liés à un dossier',
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
+  uploadDocuments(
+    @Param('id') dossierId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const utilisateurId = req.user?.id || 'system';
+    return this.dossiersService.addDocumentsToDossier(
+      dossierId,
+      files,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      utilisateurId,
     );
   }
 }

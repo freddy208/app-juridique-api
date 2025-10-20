@@ -5,6 +5,11 @@ import { Type } from 'class-transformer';
 import { StatutDossier, TypeDossier } from '@prisma/client';
 
 export class FilterDossierDto {
+  @ApiPropertyOptional({ description: 'Recherche par titre ou numéro unique' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({
     description: 'Filtrer par statut du dossier',
     enum: StatutDossier,

@@ -9,18 +9,28 @@ import { CreateDossierNoteDto } from './dto/create-dossier-note.dto';
 import { UpdateDossierNoteDto } from './dto/update-dossier-note.dto';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class DossiersService {
   private readonly logger = new Logger(DossiersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService, // ✅ ajout ici
+  ) {}
 
+  // ✅ Correction de la méthode findAll pour exclure les dossiers supprimés
   async findAll(filters: FilterDossierDto) {
-    const { statut, type, clientId, responsableId, skip, take } = filters;
+    const { statut, type, clientId, responsableId, skip, take, search } =
+      filters;
 
-    const where: Prisma.DossierWhereInput = {};
+    const where: Prisma.DossierWhereInput = {
+      // Exclure systématiquement les dossiers supprimés
+      statut: { not: 'SUPPRIME' },
+    };
 
+    // Appliquer les filtres optionnels
     if (statut) {
       where.statut = statut;
     }
@@ -33,9 +43,17 @@ export class DossiersService {
     if (responsableId) {
       where.responsableId = responsableId;
     }
+    if (search) {
+      where.OR = [
+        { titre: { contains: search, mode: 'insensitive' } },
+        { numeroUnique: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
+    // Compter le total des dossiers valides
     const totalCount = await this.prisma.dossier.count({ where });
 
+    // Récupérer les dossiers actifs uniquement
     const data = await this.prisma.dossier.findMany({
       where,
       skip,
@@ -67,6 +85,7 @@ export class DossiersService {
       data,
     };
   }
+
   // ✅ Nouveau : récupérer un dossier par ID avec toutes les relations
   async findOne(id: string) {
     const dossier = await this.prisma.dossier.findUnique({
@@ -98,36 +117,35 @@ export class DossiersService {
     return dossier;
   }
   /**
-   * Créer un dossier avec un numéro unique sous la forme PREFIX+ANNEE+INCR
-   * Exemple : SC20250001
+   * Créer un dossier avec un numéro unique fiable
+   * Format : PREFIX + ANNEE(2 derniers chiffres) + incrément sur 4 chiffres
+   * Exemple : SC25-0001
    */
   async create(createDossierDto: CreateDossierDto) {
     const { titre, type, description, clientId, responsableId, statut } =
       createDossierDto;
 
-    // Vérifier que le client existe
+    // Vérifier le client
     const client = await this.prisma.client.findUnique({
       where: { id: clientId, statut: 'ACTIF' },
     });
     if (!client) {
-      this.logger.warn(`Client with ID ${clientId} not found`);
-      throw new NotFoundException(`Client with ID ${clientId} not found`);
+      throw new NotFoundException(`Client avec ID ${clientId} introuvable`);
     }
 
-    // Vérifier que le responsable existe si fourni
+    // Vérifier le responsable
     if (responsableId) {
       const responsable = await this.prisma.utilisateur.findUnique({
         where: { id: responsableId, statut: 'ACTIF' },
       });
       if (!responsable) {
-        this.logger.warn(`Responsable with ID ${responsableId} not found`);
         throw new NotFoundException(
-          `Responsable with ID ${responsableId} not found`,
+          `Responsable avec ID ${responsableId} introuvable`,
         );
       }
     }
 
-    // Préfixes par type de dossier
+    // Préfixes selon le type de dossier
     const prefixMap: Record<string, string> = {
       SINISTRE_CORPOREL: 'SC',
       SINISTRE_MATERIEL: 'SM',
@@ -140,29 +158,33 @@ export class DossiersService {
     };
 
     const prefix = prefixMap[type];
-    const year = new Date().getFullYear();
+    const year = new Date().getFullYear().toString().slice(-2); // ex: "25" pour 2025
 
-    // ✅ Transaction Prisma pour éviter doublons
+    // ✅ Transaction pour garantir l’unicité et la cohérence
     const dossier = await this.prisma.$transaction(async (tx) => {
-      // Chercher le dernier numéro pour ce type + année
+      // Trouver le dernier dossier du même type et année
       const lastDossier = await tx.dossier.findFirst({
         where: {
           type,
           numeroUnique: { startsWith: `${prefix}${year}` },
         },
-        orderBy: { numeroUnique: 'desc' }, // On trie sur le numéro unique
+        orderBy: { numeroUnique: 'desc' },
       });
 
+      // Déterminer le prochain numéro incrémental
       let increment = 1;
       if (lastDossier) {
         const lastNumber = parseInt(lastDossier.numeroUnique.slice(-4), 10);
-        increment = lastNumber + 1;
+        if (!isNaN(lastNumber)) {
+          increment = lastNumber + 1;
+        }
       }
 
-      const numeroUnique = `${prefix}${year}${increment.toString().padStart(4, '0')}`;
+      // Générer le numéro unique final
+      const numeroUnique = `${prefix}${year}-${increment.toString().padStart(4, '0')}`;
 
-      // Créer le dossier dans la même transaction
-      return await tx.dossier.create({
+      // ✅ Création du dossier principal
+      const dossierCree = await tx.dossier.create({
         data: {
           titre,
           type,
@@ -172,6 +194,58 @@ export class DossiersService {
           statut: statut || 'OUVERT',
           numeroUnique,
         },
+        include: {
+          client: true,
+          responsable: true,
+        },
+      });
+
+      // ✅ Création du sous-dossier selon le type
+      if (createDossierDto.detailsSpecifiques) {
+        const dataSpec = createDossierDto.detailsSpecifiques;
+
+        switch (type) {
+          case 'SINISTRE_CORPOREL':
+            await tx.sinistreCorporel.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+          case 'SINISTRE_MATERIEL':
+            await tx.sinistreMateriel.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+          case 'SINISTRE_MORTEL':
+            await tx.sinistreMortel.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+          case 'IMMOBILIER':
+            await tx.immobilier.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+          case 'SPORT':
+            await tx.sport.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+          case 'CONTENTIEUX':
+            await tx.contentieux.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+          case 'CONTRAT':
+            await tx.contrat.create({
+              data: { ...dataSpec, dossierId: dossierCree.id },
+            });
+            break;
+        }
+      }
+
+      // 🔚 Retourner le dossier complet avec toutes ses relations
+      return await tx.dossier.findUnique({
+        where: { id: dossierCree.id },
         include: {
           client: true,
           responsable: true,
@@ -192,11 +266,16 @@ export class DossiersService {
       });
     });
 
+    if (!dossier) {
+      throw new Error("Erreur interne : le dossier n'a pas été créé");
+    }
+
     this.logger.log(
-      `✅ Dossier créé avec numeroUnique ${dossier.numeroUnique}`,
+      `✅ Dossier créé avec numéro unique ${dossier.numeroUnique}`,
     );
     return dossier;
   }
+
   /**
    * Mettre à jour un dossier existant
    */
@@ -834,6 +913,51 @@ export class DossiersService {
     return {
       message: `Dossier réassigné avec succès`,
       dossier: updatedDossier,
+    };
+  }
+  async addDocumentsToDossier(
+    dossierId: string,
+    files: Express.Multer.File[],
+    utilisateurId: string,
+  ) {
+    // Vérifier que le dossier existe
+    const dossier = await this.prisma.dossier.findUnique({
+      where: { id: dossierId, statut: { not: 'SUPPRIME' } },
+    });
+    if (!dossier) {
+      throw new NotFoundException(`Dossier ${dossierId} introuvable`);
+    }
+
+    // Importer ton service cloudinary existant
+    /*const { CloudinaryService } = await import(
+      '../cloudinary/cloudinary.service.js'
+    );*/
+    //const cloudinary = new CloudinaryService();
+
+    // Upload + création en base
+    const uploadedDocs = await Promise.all(
+      files.map(async (file) => {
+        const uploaded = await this.cloudinaryService.uploadFile(file);
+        return this.prisma.document.create({
+          data: {
+            dossierId,
+            televersePar: utilisateurId,
+            titre: file.originalname,
+            type: file.mimetype,
+            url: uploaded.secure_url,
+            statut: 'ACTIF',
+          },
+        });
+      }),
+    );
+
+    this.logger.log(
+      `📎 ${uploadedDocs.length} document(s) ajoutés au dossier ${dossierId} par ${utilisateurId}`,
+    );
+
+    return {
+      message: `${uploadedDocs.length} document(s) ajoutés avec succès`,
+      documents: uploadedDocs,
     };
   }
 }

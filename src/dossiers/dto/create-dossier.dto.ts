@@ -36,4 +36,12 @@ export class CreateDossierDto {
   @IsOptional()
   @IsEnum(StatutDossier)
   statut?: StatutDossier;
+
+  @ApiProperty({
+    description: 'Details specifiques des sous dossiers',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  detailsSpecifiques?: Record<string, any>; // ✅ champ dynamique venant du frontend
 }
