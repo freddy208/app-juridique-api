@@ -38,7 +38,7 @@ describe('TachesController', () => {
       statut: 'A_FAIRE',
       skip: 0,
       take: 10,
-    }; // skip et take prennent les valeurs par défaut
+    }; // skip et take prennent les valeurs par défaut a utiliser
     await controller.findAll(filters);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(service.findAll).toHaveBeenCalledWith(filters);
