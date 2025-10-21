@@ -2,9 +2,16 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { Request, Response } from 'express'; // Importer les types Request et Response
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Utiliser la méthode NestJS pour servir des fichiers statiques
+  app.useStaticAssets(join(__dirname, '..', 'exports'), {
+    prefix: '/exports/',
+  });
 
   // ⚡ Configurer CORS correctement
   app.enableCors({
@@ -15,8 +22,6 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
-
-  //app.use(cookieParser());
 
   // Préfixe global
   app.setGlobalPrefix('api/v1');
@@ -33,7 +38,7 @@ async function bootstrap() {
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('API Cabinet Juridique')
-    .setDescription('Documentation officielle de l’API')
+    .setDescription("Documentation officielle de l'API")
     .setVersion('1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
@@ -46,10 +51,9 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  // Rediriger `/` vers `/docs`
+  // Rediriger `/` vers `/docs` avec typage correct
   const httpAdapter = app.getHttpAdapter();
-  httpAdapter.get('/', (req, res) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  httpAdapter.get('/', (req: Request, res: Response) => {
     res.redirect('/docs');
   });
 
@@ -59,7 +63,8 @@ async function bootstrap() {
   console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
 
-bootstrap().catch((err) => {
+bootstrap().catch((err: Error) => {
+  // Typage correct pour l'erreur
   console.error('Error during bootstrap:', err);
   process.exit(1);
 });

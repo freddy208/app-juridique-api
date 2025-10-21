@@ -4,13 +4,26 @@ import { PrismaService } from '../prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { NotFoundException } from '@nestjs/common';
 import { StatutDossier } from '@prisma/client';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('DossiersService', () => {
   let service: DossiersService;
   let prisma: Partial<Record<keyof PrismaService, any>>;
   let cloudinary: Partial<CloudinaryService>;
+  let cacheManager: {
+    get: jest.Mock;
+    set: jest.Mock;
+    del: jest.Mock;
+  };
 
   beforeEach(async () => {
+    // Mock pour le cache manager
+    cacheManager = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+    };
+
     // Mock minimal PrismaService
     prisma = {
       dossier: {
@@ -20,6 +33,7 @@ describe('DossiersService', () => {
         update: jest.fn(),
         create: jest.fn(),
         findFirst: jest.fn(),
+        updateMany: jest.fn(),
       },
       client: { findUnique: jest.fn() },
       utilisateur: { findUnique: jest.fn() },
@@ -54,6 +68,7 @@ describe('DossiersService', () => {
         DossiersService,
         { provide: PrismaService, useValue: prisma },
         { provide: CloudinaryService, useValue: cloudinary },
+        { provide: CACHE_MANAGER, useValue: cacheManager },
       ],
     }).compile();
 
@@ -83,6 +98,65 @@ describe('DossiersService', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.dossier.findUnique.mockResolvedValue(null);
       await expect(service.findOne('1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return cached result if available', async () => {
+      const filters = { skip: 0, take: 10 };
+      const cachedResult = { totalCount: 1, skip: 0, take: 10, data: [] };
+      // Mock plus précis pour le cache
+      cacheManager.get.mockImplementation((key: string) => {
+        if (key === `dossiers:${JSON.stringify(filters)}`) {
+          return Promise.resolve(cachedResult);
+        }
+        if (key === 'dossiers:cache_keys') {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve(null);
+      });
+      const result = await service.findAll(filters);
+      expect(result).toEqual(cachedResult);
+      expect(cacheManager.get).toHaveBeenCalledWith(
+        `dossiers:${JSON.stringify(filters)}`,
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(prisma.dossier.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should query database if no cached result', async () => {
+      const filters = { skip: 0, take: 10 };
+      const dbResult = {
+        totalCount: 1,
+        skip: 0,
+        take: 10,
+        data: [{ id: '1', titre: 'Test' }],
+      };
+      // Mock plus précis pour le cache
+      cacheManager.get.mockImplementation((key: string) => {
+        if (key === `dossiers:${JSON.stringify(filters)}`) {
+          return Promise.resolve(null);
+        }
+        if (key === 'dossiers:cache_keys') {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve(null);
+      });
+      // Mock de la base de données
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      prisma.dossier.findMany.mockResolvedValue(dbResult.data);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      prisma.dossier.count.mockResolvedValue(dbResult.totalCount);
+      const result = await service.findAll(filters);
+      expect(result).toEqual(dbResult);
+      expect(cacheManager.get).toHaveBeenCalledWith(
+        `dossiers:${JSON.stringify(filters)}`,
+      );
+      expect(cacheManager.set).toHaveBeenCalledWith(
+        `dossiers:${JSON.stringify(filters)}`,
+        dbResult,
+        300000,
+      );
     });
   });
 
@@ -119,9 +193,12 @@ describe('DossiersService', () => {
         }),
       );
 
+      // Mock du cache pour l'invalidation
+      cacheManager.get.mockResolvedValue(['dossiers:{}']);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const result = await service.create(dto as any);
       expect(result.numeroUnique).toBe('AU250001');
+      expect(cacheManager.del).toHaveBeenCalled();
     });
 
     it('should throw if client not found', async () => {
@@ -180,8 +257,12 @@ describe('DossiersService', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       prisma.journalAudit.create.mockResolvedValue(true);
 
+      // Mock du cache pour l'invalidation
+      cacheManager.get.mockResolvedValue(['dossiers:{}']);
+
       const result = await service.softDelete('1', 'u1');
       expect(result.dossier.statut).toBe('SUPPRIME');
+      expect(cacheManager.del).toHaveBeenCalled();
     });
   });
 
@@ -232,5 +313,14 @@ describe('DossiersService', () => {
     });
   });
 
-  // Tu peux continuer avec findNotesPaginated, findCalendarEvents, createEvent, updateEvent, softDeleteEvent
+  describe('invalidateDossierCache', () => {
+    it('should invalidate cache keys', async () => {
+      const mockKeys = ['dossiers:{}', 'dossiers:{filter: "test"}'];
+      cacheManager.get.mockResolvedValue(mockKeys);
+      await service['invalidateDossierCache'](); // Accès à la méthode privée
+      expect(cacheManager.get).toHaveBeenCalledWith('dossiers:cache_keys');
+      // +1 pour la clé des clés elle-même
+      expect(cacheManager.del).toHaveBeenCalledTimes(mockKeys.length + 1);
+    });
+  });
 });

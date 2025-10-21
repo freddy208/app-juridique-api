@@ -3,4 +3,5 @@ export enum StatutDossier {
   EN_COURS = 'EN_COURS',
   CLOS = 'CLOS',
   ARCHIVE = 'ARCHIVE',
+  BROUILLON = 'BROUILLON',
 }

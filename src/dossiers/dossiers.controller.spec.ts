@@ -49,12 +49,24 @@ describe('DossiersController', () => {
 
   it('create should call service.create', async () => {
     const dto = { titre: 'Test', type: 'AUTRE', clientId: 'c1' };
+    const etape = 1;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    service.create.mockResolvedValue({ id: 'd1', ...dto });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const result = await controller.create(dto as any, etape);
+    expect(service.create).toHaveBeenCalledWith(dto, etape);
+    expect(result.id).toBe('d1');
+  });
+
+  it('create should call service.create without etape', async () => {
+    const dto = { titre: 'Test', type: 'AUTRE', clientId: 'c1' };
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     service.create.mockResolvedValue({ id: 'd1', ...dto });
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const result = await controller.create(dto as any);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    expect(service.create).toHaveBeenCalledWith(dto, undefined);
     expect(result.id).toBe('d1');
   });
 
@@ -68,6 +80,7 @@ describe('DossiersController', () => {
     expect(service.updateStatus).toHaveBeenCalledWith('1', 'CLOS');
     expect(result.message).toBe('ok');
   });
+
   it('softDelete should call service.softDelete', async () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     service.softDelete.mockResolvedValue({ message: 'deleted' });
@@ -178,6 +191,4 @@ describe('DossiersController', () => {
     expect(service.assignDossier).toHaveBeenCalledWith('1', 'user456');
     expect(result.message).toBe('assigned');
   });
-
-  // ⚡️ On peut répéter pour tous les endpoints : softDelete, getDocuments, getTasks, getCalendarEvents, getChatMessages, getNotes, addNote, updateNote, deleteNote, getEvents, assignDossier...
 });

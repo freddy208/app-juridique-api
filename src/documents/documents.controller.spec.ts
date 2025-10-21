@@ -4,8 +4,8 @@ import { DocumentsService } from './documents.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
-import { CreateCommentDto } from './dto/create-document-comment.dto';
-import { UpdateCommentDto } from './dto/update-document-comment.dto';
+import { CreateDocumentCommentDto } from './dto/create-document-comment.dto';
+import { UpdateDocumentCommentDto } from './dto/update-document-comment.dto';
 import { FilterDocumentDto } from './dto/filter-document.dto';
 
 const mockDocumentsService = () => ({
@@ -156,7 +156,7 @@ describe('DocumentsController', () => {
 
   describe('addComment', () => {
     it('should call service.addCommentToDocument', async () => {
-      const dto: CreateCommentDto = { contenu: 'Test' };
+      const dto: CreateDocumentCommentDto = { contenu: 'Test' };
       const user = { id: 'user1' };
       const comment = { id: 'c1', contenu: 'Test' };
       service.addCommentToDocument.mockResolvedValue(comment);
@@ -172,7 +172,7 @@ describe('DocumentsController', () => {
 
   describe('updateComment', () => {
     it('should call service.updateComment', async () => {
-      const dto: UpdateCommentDto = { contenu: 'Updated' };
+      const dto: UpdateDocumentCommentDto = { contenu: 'Updated' };
       const user = { id: 'user1' };
       const comment = { id: 'c1', contenu: 'Updated' };
       service.updateComment.mockResolvedValue(comment);

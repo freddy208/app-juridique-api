@@ -81,6 +81,16 @@ model Dossier {
   sport            Sport?
   taches           Tache[]
   Autre            Autre?
+
+  // Index pour les performances
+  @@index([statut])
+  @@index([type])
+  @@index([clientId])
+  @@index([responsableId])
+  @@index([creeLe])
+  @@index([modifieLe])
+  @@index([statut, type])
+  @@index([statut, creeLe])
 }
 
 model SinistreCorporel {
@@ -474,6 +484,7 @@ enum StatutDossier {
   CLOS
   ARCHIVE
   SUPPRIME
+  BROUILLON 
 }
 
 enum GraviteBlessure {

@@ -1,27 +1,28 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "esModuleInterop": true,
+    "module": "commonjs",
+    "declaration": false,
+    "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./",
-    "baseUrl": "./",
+    "baseUrl": "./src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
-    "isolatedModules": true,
-    //"ignoreDeprecations":"6.0", // nouvelle ligne pour ignorer les avertissements de dépréciation
-
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitOverride": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": [
-    "src/**/*",
-    "prisma/**/*",
-    "test/**/*"
-, "src/documents/dto/filter-document.dto.ts"  ],
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist"
