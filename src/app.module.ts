@@ -30,14 +30,14 @@ import mobileMoneyConfig from './config/mobile-money.config';
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const ttl = config.get<number>('app.throttler.ttl') ?? 60;
-        const limit = config.get<number>('app.throttler.limit') ?? 10;
-        return {
-          ttl,
-          limit,
-        } as unknown as import('@nestjs/throttler').ThrottlerModuleOptions; // TypeScript détectera correctement
-      },
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: Number(config.get('THROTTLE_TTL')) || 60,
+            limit: Number(config.get('THROTTLE_LIMIT')) || 10,
+          },
+        ],
+      }),
     }),
 
     // Base de données
