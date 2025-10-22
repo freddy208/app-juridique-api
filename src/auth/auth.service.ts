@@ -1,247 +1,338 @@
-// auth.service.ts
 import {
-  ConflictException,
-  ForbiddenException,
   Injectable,
   UnauthorizedException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
-import { RoleUtilisateur as PrismaRoleUtilisateur } from '@prisma/client';
-import { IUser, IRegisterDto } from './interfaces/user.interface';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AuthResponse } from './interfaces/auth-response.interface';
+import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { MailService } from '../mail/mail.service';
-import { jwtConstants } from './constants';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private mailService: MailService, // injection
+    private configService: ConfigService,
+    private mailService: MailService,
   ) {}
 
-  async validateUser(email: string, motDePasse: string): Promise<IUser> {
-    const user = await this.prisma.utilisateur.findUnique({ where: { email } });
-    if (!user) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
-    }
+  async register(registerDto: RegisterDto): Promise<AuthResponse> {
+    const { email, motDePasse, prenom, nom, role } = registerDto;
 
-    const passwordValid = await bcrypt.compare(motDePasse, user.motDePasse);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
-    }
-
-    // ✅ on retourne un objet propre, conforme à IUser
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      prenom: user.prenom,
-      nom: user.nom,
-    };
-  }
-
-  async login(user: IUser) {
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refresh_token = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-    await this.prisma.utilisateur.update({
-      where: { id: user.id },
-      data: { refreshToken: refresh_token },
-    });
-
-    return { access_token, refresh_token };
-  }
-
-  async refreshToken(userId: string, refreshToken: string) {
-    const user = await this.prisma.utilisateur.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || user.refreshToken !== refreshToken) {
-      throw new UnauthorizedException(
-        'Refresh token invalide ou utilisateur introuvable',
-      );
-    }
-
-    try {
-      this.jwtService.verify(refreshToken, { secret: jwtConstants.secret });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (err) {
-      throw new UnauthorizedException('Refresh token expiré ou invalide');
-    }
-
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
-
-    return { access_token };
-  }
-
-  async logout(user: { id: string; email: string }) {
-    await this.prisma.utilisateur.update({
-      where: { id: user.id },
-      data: { refreshToken: null },
-    });
-    return { message: `Utilisateur ${user.id} déconnecté avec succès` };
-  }
-
-  async register(currentUser: IUser, data: IRegisterDto) {
-    const allowedRoles: PrismaRoleUtilisateur[] = [
-      PrismaRoleUtilisateur.ADMIN,
-      PrismaRoleUtilisateur.DG,
-      PrismaRoleUtilisateur.AVOCAT,
-      PrismaRoleUtilisateur.SECRETAIRE,
-    ];
-    if (!allowedRoles.includes(currentUser.role)) {
-      throw new ForbiddenException(
-        "Vous n'avez pas les droits pour créer un utilisateur",
-      );
-    }
-
+    // Vérifier si l'utilisateur existe déjà
     const existingUser = await this.prisma.utilisateur.findUnique({
-      where: { email: data.email },
+      where: { email },
     });
+
     if (existingUser) {
-      throw new ConflictException('Cet email est déjà utilisé');
+      throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
 
-    const hashedPassword = await bcrypt.hash(data.motDePasse, 10);
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(motDePasse, 10);
 
-    const user = await this.prisma.utilisateur.create({
+    // Créer l'utilisateur
+    const utilisateur = await this.prisma.utilisateur.create({
       data: {
-        prenom: data.prenom,
-        nom: data.nom,
-        email: data.email,
+        prenom,
+        nom,
+        email,
         motDePasse: hashedPassword,
-        role: data.role,
+        role: role || 'ASSISTANT',
+      },
+      select: {
+        id: true,
+        prenom: true,
+        nom: true,
+        email: true,
+        role: true,
+        statut: true,
       },
     });
 
-    return this.login(user);
-  }
-  // auth.service.ts
+    // Générer les tokens
+    const tokens = this.generateTokens(utilisateur.id, utilisateur.email);
 
-  async me(userId: string) {
-    // On récupère l'utilisateur actuel en base
-    const user = await this.prisma.utilisateur.findUnique({
-      where: { id: userId },
+    // Mettre à jour le refresh token dans la base de données
+    await this.prisma.utilisateur.update({
+      where: { id: utilisateur.id },
+      data: { refreshToken: tokens.refreshToken },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('Utilisateur non trouvé');
-    }
-
-    // On retire le mot de passe avant de renvoyer l'objet
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { motDePasse, refreshToken, ...safeUser } = user;
-
-    return safeUser;
-  }
-  //forgot password
-  async forgotPassword(email: string) {
-    const user = await this.prisma.utilisateur.findUnique({ where: { email } });
-    if (!user) {
-      // toujours renvoyer le même message pour ne pas divulguer l’existence
-      return {
-        message:
-          'Si cet email existe, un message de réinitialisation a été envoyé.',
-      };
-    }
-
-    const resetToken = this.jwtService.sign(
-      { sub: user.id, email: user.email },
-      { expiresIn: '15m' },
+    // Envoyer un email de bienvenue
+    void this.mailService.sendWelcomeEmail(
+      utilisateur.email,
+      `${utilisateur.prenom} ${utilisateur.nom}`,
     );
 
-    await this.prisma.utilisateur.update({
-      where: { email },
-      data: {
-        resetPasswordToken: resetToken,
-        resetPasswordExpires: new Date(Date.now() + 15 * 60 * 1000),
-      },
-    });
-
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-
-    const html = `
-      <h1>Cabinet Juridique XYZ</h1>
-      <p>Bonjour ${user.prenom},</p>
-      <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-      <p>Cliquez sur ce lien pour réinitialiser votre mot de passe :</p>
-      <a href="${resetLink}">${resetLink}</a>
-      <p>Ce lien expirera dans 15 minutes.</p>
-      <p>Si vous n'avez pas demandé cette réinitialisation, ignorez ce message.</p>
-      <p>Merci,<br/>Cabinet Juridix Consulting</p>
-    `;
-
-    try {
-      await this.mailService.sendMail(
-        user.email,
-        'Réinitialisation de votre mot de passe',
-        html,
-      );
-    } catch (err) {
-      // Log si besoin — mais NE PAS relancer
-      console.error('Erreur envoi mail (ignored):', err);
-    }
-
     return {
-      message:
-        'Si cet email existe, un message de réinitialisation a été envoyé.',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      utilisateur,
     };
   }
-  // src/auth/auth.service.ts
 
-  async resetPassword(token: string, nouveauMotDePasse: string) {
+  async login(loginDto: LoginDto): Promise<AuthResponse> {
+    const { email, motDePasse } = loginDto;
+
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { email },
+    });
+
+    if (!utilisateur) {
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
+    }
+
+    // Vérifier si l'utilisateur est actif
+    if (utilisateur.statut !== 'ACTIF') {
+      throw new UnauthorizedException(
+        "Votre compte est désactivé. Veuillez contacter l'administrateur",
+      );
+    }
+
+    // Vérifier le mot de passe
+    const isPasswordValid = await bcrypt.compare(
+      motDePasse,
+      utilisateur.motDePasse,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
+    }
+
+    // Générer les tokens
+    const tokens = this.generateTokens(utilisateur.id, utilisateur.email);
+
+    // Mettre à jour le refresh token dans la base de données
+    await this.prisma.utilisateur.update({
+      where: { id: utilisateur.id },
+      data: { refreshToken: tokens.refreshToken },
+    });
+
+    // Retourner les informations de l'utilisateur sans le mot de passe
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { motDePasse: _, refreshToken: __, ...userInfo } = utilisateur;
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      utilisateur: userInfo,
+    };
+  }
+
+  async logout(userId: string): Promise<void> {
+    // Supprimer le refresh token de la base de données
+    await this.prisma.utilisateur.update({
+      where: { id: userId },
+      data: { refreshToken: null },
+    });
+  }
+
+  async refreshTokens(refreshToken: string): Promise<AuthResponse> {
     try {
-      // Vérifie et décode le token
+      // Vérifier le refresh token
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get('jwt.refreshSecret'),
+      });
 
-      const user = await this.prisma.utilisateur.findUnique({
+      // Vérifier si l'utilisateur existe et que le refresh token correspond
+      const utilisateur = await this.prisma.utilisateur.findUnique({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         where: { id: payload.sub },
       });
 
-      if (
-        !user ||
-        user.resetPasswordToken !== token ||
-        !user.resetPasswordExpires ||
-        user.resetPasswordExpires < new Date()
-      ) {
-        throw new UnauthorizedException('Lien invalide ou expiré');
+      if (!utilisateur || utilisateur.refreshToken !== refreshToken) {
+        throw new UnauthorizedException('Refresh token invalide');
       }
 
-      // Hash du nouveau mot de passe
-      const hashedPassword = await bcrypt.hash(nouveauMotDePasse, 10);
+      // Vérifier si l'utilisateur est actif
+      if (utilisateur.statut !== 'ACTIF') {
+        throw new UnauthorizedException(
+          "Votre compte est désactivé. Veuillez contacter l'administrateur",
+        );
+      }
 
+      // Générer de nouveaux tokens
+      const tokens = this.generateTokens(utilisateur.id, utilisateur.email);
+
+      // Mettre à jour le refresh token dans la base de données
       await this.prisma.utilisateur.update({
-        where: { id: user.id },
-        data: {
-          motDePasse: hashedPassword,
-          resetPasswordToken: null,
-          resetPasswordExpires: null,
-        },
+        where: { id: utilisateur.id },
+        data: { refreshToken: tokens.refreshToken },
       });
 
-      return { message: 'Mot de passe réinitialisé avec succès' };
+      // Retourner les informations de l'utilisateur sans le mot de passe
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { motDePasse: _, refreshToken: __, ...userInfo } = utilisateur;
+
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        utilisateur: userInfo,
+      };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      throw new UnauthorizedException('Lien invalide ou expiré');
-    }
-  }
-  // auth.service.ts
-  decodeRefreshToken(refreshToken: string) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return this.jwtService.verify(refreshToken, {
-        secret: jwtConstants.secret,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (err) {
       throw new UnauthorizedException('Refresh token invalide ou expiré');
     }
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<void> {
+    const { email } = forgotPasswordDto;
+
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { email },
+    });
+
+    if (!utilisateur) {
+      // Pour des raisons de sécurité, ne pas révéler si l'email existe ou non
+      return;
+    }
+
+    // Générer un token de réinitialisation
+    const resetToken = this.generateResetToken();
+    const resetTokenExpires = new Date();
+    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1); // Expire dans 1 heure
+
+    // Mettre à jour l'utilisateur avec le token de réinitialisation
+    await this.prisma.utilisateur.update({
+      where: { id: utilisateur.id },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetTokenExpires,
+      },
+    });
+
+    // Envoyer l'email de réinitialisation
+    await this.mailService.sendPasswordResetEmail(
+      utilisateur.email,
+      `${utilisateur.prenom} ${utilisateur.nom}`,
+      resetToken,
+    );
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
+    const { token, motDePasse } = resetPasswordDto;
+
+    // Vérifier si le token est valide
+    const utilisateur = await this.prisma.utilisateur.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!utilisateur) {
+      throw new BadRequestException(
+        'Token de réinitialisation invalide ou expiré',
+      );
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(motDePasse, 10);
+
+    // Mettre à jour le mot de passe et supprimer le token de réinitialisation
+    await this.prisma.utilisateur.update({
+      where: { id: utilisateur.id },
+      data: {
+        motDePasse: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        refreshToken: null, // Forcer la déconnexion de toutes les sessions
+      },
+    });
+
+    // Envoyer un email de confirmation
+    await this.mailService.sendPasswordResetConfirmationEmail(
+      utilisateur.email,
+      `${utilisateur.prenom} ${utilisateur.nom}`,
+    );
+  }
+
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const { ancienMotDePasse, nouveauMotDePasse } = changePasswordDto;
+
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id: userId },
+    });
+
+    if (!utilisateur) {
+      throw new UnauthorizedException('Utilisateur non trouvé');
+    }
+
+    // Vérifier l'ancien mot de passe
+    const isPasswordValid = await bcrypt.compare(
+      ancienMotDePasse,
+      utilisateur.motDePasse,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Ancien mot de passe incorrect');
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(nouveauMotDePasse, 10);
+
+    // Mettre à jour le mot de passe
+    await this.prisma.utilisateur.update({
+      where: { id: userId },
+      data: {
+        motDePasse: hashedPassword,
+        refreshToken: null, // Forcer la déconnexion de toutes les sessions
+      },
+    });
+
+    // Envoyer un email de confirmation
+    await this.mailService.sendPasswordChangeConfirmationEmail(
+      utilisateur.email,
+      `${utilisateur.prenom} ${utilisateur.nom}`,
+    );
+  }
+
+  private generateTokens(
+    userId: string,
+    email: string,
+  ): { accessToken: string; refreshToken: string } {
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      role: '',
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get('jwt.refreshSecret'),
+      expiresIn: this.configService.get('jwt.refreshExpiresIn'),
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  private generateResetToken(): string {
+    const chars =
+      '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let token = '';
+    for (let i = 0; i < 32; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
   }
 }

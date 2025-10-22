@@ -35,23 +35,37 @@ model Utilisateur {
   ReactionMessage      ReactionMessage[]
   Notification         Notification[]
   Fichier              Fichier[]
+  PerformanceAvocat    PerformanceAvocat[]
+  Alerte               Alerte[]
 }
 
 model Client {
-  id              String           @id @default(uuid())
-  prenom          String
-  nom             String
-  nomEntreprise   String?
-  telephone       String?
-  email           String?
-  adresse         String?
-  statut          StatutClient     @default(ACTIF)
-  creeLe          DateTime         @default(now())
-  modifieLe       DateTime         @updatedAt
-  correspondances Correspondance[]
-  dossiers        Dossier[]
-  factures        Facture[]
-  notes           Note[]
+  id                  String                @id @default(uuid())
+  prenom              String
+  nom                 String
+  nomEntreprise       String?
+  telephone           String?
+  email               String?
+  adresse             String?
+  statut              StatutClient          @default(ACTIF)
+  creeLe              DateTime              @default(now())
+  modifieLe           DateTime              @updatedAt
+  correspondances     Correspondance[]
+  dossiers            Dossier[]
+  factures            Facture[]
+  notes               Note[]
+  DocumentIdentite    DocumentIdentite[]
+  honoraires          Honoraire[]
+  paiements           Paiement[]
+  provisions          Provision[]
+  chiffreAffaires     Decimal?              @default(0)
+  statutVIP           Boolean               @default(false)
+  derniereVisite      DateTime?
+  CommunicationClient CommunicationClient[]
+  Satisfaction        Satisfaction[]
+
+  @@index([statutVIP])
+  @@index([chiffreAffaires])
 }
 
 model Dossier {
@@ -82,6 +96,17 @@ model Dossier {
   taches           Tache[]
   Autre            Autre?
 
+  procedures       Procedure[]
+  honoraires       Honoraire[]
+  depenses         Depense[]
+  provisions       Provision[]
+  jurisprudences   DossierJurisprudence[]
+  documentsGeneres DocumentGenere[]
+  valeurFinanciere Decimal?
+  risqueJuridique  NiveauRisque?
+  chancesSucces    Int? // Pourcentage 0-100
+  Satisfaction     Satisfaction[]
+
   // Index pour les performances
   @@index([statut])
   @@index([type])
@@ -91,6 +116,8 @@ model Dossier {
   @@index([modifieLe])
   @@index([statut, type])
   @@index([statut, creeLe])
+  @@index([valeurFinanciere])
+  @@index([risqueJuridique])
 }
 
 model SinistreCorporel {
@@ -195,8 +222,8 @@ model Contrat {
 }
 
 model Contentieux {
-  id              String          @id @default(uuid())
-  dossierId       String          @unique
+  id              String           @id @default(uuid())
+  dossierId       String           @unique
   numeroAffaire   String?
   tribunal        String?
   juridiction     String?
@@ -204,14 +231,14 @@ model Contentieux {
   defendeur       String?
   avocatPlaignant String?
   avocatDefenseur String?
-  etapeProcedure  EtapeProcedure? @default(INSTRUCTIVE)
+  etapeProcedure  EtapeProcedures? @default(INSTRUCTIVE)
   montantReclame  Decimal?
   datesAudiences  Json?
   depots          Json?
   rapportHussier  String?
-  creeLe          DateTime        @default(now())
-  modifieLe       DateTime        @updatedAt
-  dossier         Dossier         @relation(fields: [dossierId], references: [id])
+  creeLe          DateTime         @default(now())
+  modifieLe       DateTime         @updatedAt
+  dossier         Dossier          @relation(fields: [dossierId], references: [id])
 }
 
 model Autre {
@@ -224,19 +251,24 @@ model Autre {
 }
 
 model Document {
-  id           String         @id @default(uuid())
-  dossierId    String
-  televersePar String
-  titre        String
-  type         String
-  url          String
-  version      Int            @default(1)
-  statut       StatutDocument @default(ACTIF)
-  creeLe       DateTime       @default(now())
-  modifieLe    DateTime       @updatedAt
-  dossier      Dossier        @relation(fields: [dossierId], references: [id])
-  utilisateur  Utilisateur    @relation("DocumentsTeleverses", fields: [televersePar], references: [id])
-  Commentaire  Commentaire[]
+  id               String           @id @default(uuid())
+  dossierId        String
+  televersePar     String
+  titre            String
+  type             String
+  url              String
+  version          Int              @default(1)
+  statut           StatutDocument   @default(ACTIF)
+  creeLe           DateTime         @default(now())
+  modifieLe        DateTime         @updatedAt
+  dossier          Dossier          @relation(fields: [dossierId], references: [id])
+  utilisateur      Utilisateur      @relation("DocumentsTeleverses", fields: [televersePar], references: [id])
+  Commentaire      Commentaire[]
+  documentsGeneres DocumentGenere[]
+  taille           Int? // en bytes
+  extension        String?
+  indexeOCR        Boolean          @default(false)
+  contenuOCR       String?          @db.Text
 }
 
 model Tache {
@@ -286,17 +318,24 @@ model MessageChat {
 }
 
 model Facture {
-  id           String        @id @default(uuid())
-  dossierId    String?
-  clientId     String
-  montant      Decimal
-  dateEcheance DateTime
-  payee        Boolean       @default(false)
-  statut       StatutFacture @default(BROUILLON)
-  creeLe       DateTime      @default(now())
-  modifieLe    DateTime      @updatedAt
-  client       Client        @relation(fields: [clientId], references: [id])
-  dossier      Dossier?      @relation(fields: [dossierId], references: [id])
+  id            String        @id @default(uuid())
+  dossierId     String?
+  clientId      String
+  numeroFacture String        @unique // <-- AJOUT : Numéro de facture unique
+  montant       Decimal
+  dateEcheance  DateTime
+  payee         Boolean       @default(false)
+  statut        StatutFacture @default(BROUILLON)
+  creeLe        DateTime      @default(now())
+  modifieLe     DateTime      @updatedAt
+  client        Client        @relation(fields: [clientId], references: [id])
+  dossier       Dossier?      @relation(fields: [dossierId], references: [id])
+  paiements     Paiement[]
+  montantHT     Decimal?
+  montantTVA    Decimal?
+  montantTTC    Decimal?
+  solde         Decimal?
+  relances      Json? // Historique des relances
 }
 
 model PermissionRole {
@@ -309,6 +348,8 @@ model PermissionRole {
   statut      StatutPermission @default(ACTIF)
   creeLe      DateTime         @default(now())
   modifieLe   DateTime         @updatedAt
+
+  @@unique([role, module], name: "role_module_unique") // clé unique explicite
 }
 
 model JournalAudit {
@@ -401,6 +442,29 @@ model Notification {
   utilisateur   Utilisateur      @relation(fields: [utilisateurId], references: [id])
 }
 
+model DocumentIdentite {
+  id            String               @id @default(uuid())
+  clientId      String
+  type          TypeDocumentIdentite
+  url           String
+  nomFichier    String
+  tailleFichier Int
+  publicId      String
+  creeLe        DateTime             @default(now())
+  modifieLe     DateTime             @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+enum TypeDocumentIdentite {
+  CARTE_IDENTITE
+  PASSEPORT
+  PERMIS
+  AUTRE
+}
+
 enum TypeNotification {
   INFO
   ALERTE
@@ -484,7 +548,7 @@ enum StatutDossier {
   CLOS
   ARCHIVE
   SUPPRIME
-  BROUILLON 
+  BROUILLON
 }
 
 enum GraviteBlessure {
@@ -507,7 +571,7 @@ enum RegimeFoncier {
   BAIL
 }
 
-enum EtapeProcedure {
+enum EtapeProcedures {
   INSTRUCTIVE
   AUDIENCE
   JUGEMENT
@@ -574,4 +638,552 @@ enum StatutNote {
 enum StatutCorrespondance {
   ACTIF
   SUPPRIME
+}
+
+// Gestion des honoraires et paiements
+model Honoraire {
+  id            String              @id @default(uuid())
+  dossierId     String
+  clientId      String
+  montantHT     Decimal
+  tauxTVA       Decimal             @default(19.25) // TVA camerounaise
+  montantTVA    Decimal
+  montantTTC    Decimal
+  typeHonoraire TypeHonoraire
+  modeCalcul    ModeCalculHonoraire
+  baremeOHADA   String? // Référence barème OHADA
+  dateEmission  DateTime            @default(now())
+  dateEcheance  DateTime
+  statut        StatutHonoraire     @default(EMIS)
+  creeLe        DateTime            @default(now())
+  modifieLe     DateTime            @updatedAt
+
+  dossier   Dossier    @relation(fields: [dossierId], references: [id])
+  client    Client     @relation(fields: [clientId], references: [id])
+  paiements Paiement[]
+
+  @@index([dossierId])
+  @@index([clientId])
+  @@index([statut])
+}
+
+model Paiement {
+  id           String         @id @default(uuid())
+  honoraireId  String?
+  factureId    String?
+  clientId     String
+  montant      Decimal
+  modePaiement ModePaiement
+  reference    String? // Référence MTN/Orange Money
+  datePayement DateTime       @default(now())
+  validePar    String?
+  statut       StatutPaiement @default(EN_ATTENTE)
+  creeLe       DateTime       @default(now())
+  modifieLe    DateTime       @updatedAt
+
+  honoraire Honoraire? @relation(fields: [honoraireId], references: [id])
+  facture   Facture?   @relation(fields: [factureId], references: [id])
+  client    Client     @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([statut])
+}
+
+model Depense {
+  id             String           @id @default(uuid())
+  dossierId      String?
+  categorie      CategorieDepense
+  montant        Decimal
+  description    String
+  dateDepense    DateTime
+  beneficiaire   String?
+  referencePiece String?
+  validePar      String?
+  statut         StatutDepense    @default(EN_ATTENTE)
+  creeLe         DateTime         @default(now())
+  modifieLe      DateTime         @updatedAt
+
+  dossier Dossier? @relation(fields: [dossierId], references: [id])
+
+  @@index([dossierId])
+  @@index([categorie])
+}
+
+model Provision {
+  id            String          @id @default(uuid())
+  dossierId     String
+  clientId      String
+  montant       Decimal
+  solde         Decimal
+  dateProvision DateTime        @default(now())
+  statut        StatutProvision @default(ACTIVE)
+  creeLe        DateTime        @default(now())
+  modifieLe     DateTime        @updatedAt
+
+  dossier    Dossier              @relation(fields: [dossierId], references: [id])
+  client     Client               @relation(fields: [clientId], references: [id])
+  mouvements MouvementProvision[]
+
+  @@index([dossierId])
+  @@index([clientId])
+}
+
+model MouvementProvision {
+  id          String        @id @default(uuid())
+  provisionId String
+  type        TypeMouvement // DEBIT, CREDIT
+  montant     Decimal
+  description String
+  soldeApres  Decimal
+  creeLe      DateTime      @default(now())
+
+  provision Provision @relation(fields: [provisionId], references: [id])
+
+  @@index([provisionId])
+}
+
+enum TypeHonoraire {
+  FORFAITAIRE
+  AU_RESULTAT
+  HORAIRE
+  MIXTE
+}
+
+enum ModeCalculHonoraire {
+  BAREME_OHADA
+  ACCORD_LIBRE
+  CONVENTION
+}
+
+enum StatutHonoraire {
+  EMIS
+  PARTIELLEMENT_PAYE
+  PAYE
+  ANNULE
+}
+
+enum ModePaiement {
+  ESPECES
+  CHEQUE
+  VIREMENT
+  MTN_MONEY
+  ORANGE_MONEY
+  CARTE_BANCAIRE
+}
+
+enum StatutPaiement {
+  EN_ATTENTE
+  VALIDE
+  REJETE
+  ANNULE
+}
+
+enum CategorieDepense {
+  FRAIS_JUSTICE
+  HUISSIER
+  DEPLACEMENT
+  EXPERTISE
+  PHOTOCOPIE
+  TIMBRE
+  HONORAIRES_TIERS
+  AUTRE
+}
+
+enum StatutDepense {
+  EN_ATTENTE
+  APPROUVE
+  REMBOURSE
+  REJETE
+}
+
+enum StatutProvision {
+  ACTIVE
+  EPUISEE
+  RESTITUEE
+}
+
+enum TypeMouvement {
+  DEBIT
+  CREDIT
+}
+
+model Jurisprudence {
+  id            String              @id @default(uuid())
+  numeroArret   String              @unique
+  juridiction   JuridictionCameroun
+  dateDecision  DateTime
+  parties       String
+  matiere       MatiereDroit
+  motsCles      String[]
+  resume        String
+  texteIntegral String              @db.Text
+  sensDecision  SensDecision
+  reference     String?
+  documentUrl   String?
+  creeLe        DateTime            @default(now())
+  modifieLe     DateTime            @updatedAt
+
+  dossiers DossierJurisprudence[]
+
+  @@index([juridiction])
+  @@index([matiere])
+  @@index([dateDecision])
+}
+
+model DossierJurisprudence {
+  id              String   @id @default(uuid())
+  dossierId       String
+  jurisprudenceId String
+  pertinence      Int      @default(5) // 1-10
+  noteUtilisateur String?
+  creeLe          DateTime @default(now())
+
+  dossier       Dossier       @relation(fields: [dossierId], references: [id])
+  jurisprudence Jurisprudence @relation(fields: [jurisprudenceId], references: [id])
+
+  @@unique([dossierId, jurisprudenceId])
+}
+
+enum JuridictionCameroun {
+  COUR_SUPREME
+  COUR_APPEL_CENTRE
+  COUR_APPEL_LITTORAL
+  COUR_APPEL_OUEST
+  COUR_APPEL_NORD_OUEST
+  COUR_APPEL_SUD_OUEST
+  TRIBUNAL_GRANDE_INSTANCE
+  TRIBUNAL_PREMIERE_INSTANCE
+  TRIBUNAL_COUTUMIER
+}
+
+enum MatiereDroit {
+  CIVIL
+  PENAL
+  COMMERCIAL
+  TRAVAIL
+  ADMINISTRATIF
+  FONCIER
+  FAMILLE
+  SUCCESSION
+}
+
+enum SensDecision {
+  FAVORABLE
+  DEFAVORABLE
+  MIXTE
+}
+
+model Procedure {
+  id               String           @id @default(uuid())
+  dossierId        String
+  typeProcedure    TypeProcedure
+  juridiction      String
+  numeroRG         String? // Numéro Rôle Général
+  dateIntroduction DateTime
+  montantReclame   Decimal?
+  etapeActuelle    String
+  etapes           EtapeProcedure[]
+  statut           StatutProcedure  @default(EN_COURS)
+  creeLe           DateTime         @default(now())
+  modifieLe        DateTime         @updatedAt
+
+  dossier   Dossier              @relation(fields: [dossierId], references: [id])
+  audiences Audience[]
+  pieces    PieceJustificative[]
+
+  @@index([dossierId])
+  @@index([statut])
+}
+
+model EtapeProcedure {
+  id            String      @id @default(uuid())
+  procedureId   String
+  nom           String
+  description   String?
+  dateDebut     DateTime
+  dateFin       DateTime?
+  delaiLegal    Int? // en jours
+  statut        StatutEtape @default(EN_COURS)
+  responsableId String?
+  creeLe        DateTime    @default(now())
+  modifieLe     DateTime    @updatedAt
+
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+
+  @@index([procedureId])
+}
+
+model Audience {
+  id            String         @id @default(uuid())
+  procedureId   String
+  dateAudience  DateTime
+  heureAudience String
+  salle         String?
+  objet         String
+  avocat        String?
+  resultat      String?
+  prochaineDate DateTime?
+  statut        StatutAudience @default(PREVUE)
+  creeLe        DateTime       @default(now())
+  modifieLe     DateTime       @updatedAt
+
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+
+  @@index([procedureId])
+  @@index([dateAudience])
+}
+
+model PieceJustificative {
+  id          String      @id @default(uuid())
+  procedureId String
+  nom         String
+  type        TypePiece
+  dateDepot   DateTime
+  numeroDepot String?
+  documentUrl String
+  statut      StatutPiece @default(DEPOSEE)
+  creeLe      DateTime    @default(now())
+  modifieLe   DateTime    @updatedAt
+
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+
+  @@index([procedureId])
+}
+
+enum TypeProcedure {
+  ASSIGNATION
+  REQUETE
+  APPEL
+  POURVOI_CASSATION
+  REFERE
+  ORDONNANCE_INJONCTION
+}
+
+enum StatutProcedure {
+  EN_COURS
+  SUSPENDUE
+  TERMINEE
+  RADIEE
+}
+
+enum StatutEtape {
+  EN_ATTENTE
+  EN_COURS
+  TERMINEE
+  BLOQUEE
+}
+
+enum StatutAudience {
+  PREVUE
+  TENUE
+  REPORTEE
+  ANNULEE
+}
+
+enum TypePiece {
+  ASSIGNATION
+  CONCLUSIONS
+  PIECE_JUSTIFICATIVE
+  EXPERTISE
+  JUGEMENT
+  ORDONNANCE
+  AUTRE
+}
+
+enum StatutPiece {
+  DEPOSEE
+  ENREGISTREE
+  SIGNIFIEE
+}
+
+model ModeleDocument {
+  id           String          @id @default(uuid())
+  nom          String          @unique
+  categorie    CategorieModele
+  typeDossier  TypeDossier?
+  contenu      String          @db.Text
+  variables    Json // Variables dynamiques
+  langue       String          @default("FR")
+  version      Int             @default(1)
+  actif        Boolean         @default(true)
+  utilisations Int             @default(0)
+  creeLe       DateTime        @default(now())
+  modifieLe    DateTime        @updatedAt
+
+  documentsGeneres DocumentGenere[]
+
+  @@index([categorie])
+  @@index([typeDossier])
+}
+
+model DocumentGenere {
+  id         String   @id @default(uuid())
+  modeleId   String
+  dossierId  String
+  documentId String?
+  variables  Json // Valeurs des variables
+  creePar    String
+  creeLe     DateTime @default(now())
+
+  modele   ModeleDocument @relation(fields: [modeleId], references: [id])
+  dossier  Dossier        @relation(fields: [dossierId], references: [id])
+  document Document?      @relation(fields: [documentId], references: [id])
+
+  @@index([dossierId])
+  @@index([modeleId])
+}
+
+enum CategorieModele {
+  ASSIGNATION
+  CONCLUSIONS
+  REQUETE
+  ATTESTATION
+  COURRIER_CLIENT
+  CONTRAT
+  CONVENTION
+  POUVOIR
+  AUTRE
+}
+
+model StatistiqueCabinet {
+  id                     String   @id @default(uuid())
+  date                   DateTime @default(now())
+  nombreDossiers         Int
+  dossiersOuverts        Int
+  dossiersFermes         Int
+  chiffreAffaires        Decimal
+  honorairesMoyens       Decimal
+  tauxRecouvrement       Decimal
+  chargesTravail         Json // Par avocat
+  performanceAvocats     Json
+  delaisMoyenTraitement  Decimal
+  tauxSatisfactionClient Decimal?
+  creeLe                 DateTime @default(now())
+
+  @@index([date])
+}
+
+model PerformanceAvocat {
+  id                 String   @id @default(uuid())
+  avocatId           String
+  mois               DateTime
+  nombreDossiers     Int
+  chiffreAffaires    Decimal
+  tauxVictoire       Decimal?
+  delaiMoyen         Decimal
+  satisfactionClient Decimal?
+  creeLe             DateTime @default(now())
+
+  avocat Utilisateur @relation(fields: [avocatId], references: [id])
+
+  @@unique([avocatId, mois])
+}
+
+model Alerte {
+  id             String         @id @default(uuid())
+  type           TypeAlerte
+  priorite       PrioriteAlerte
+  titre          String
+  message        String
+  cibleId        String // Dossier, Facture, etc.
+  typeCible      String
+  utilisateurId  String?
+  dateEcheance   DateTime?
+  traite         Boolean        @default(false)
+  dateTraitement DateTime?
+  creeLe         DateTime       @default(now())
+
+  utilisateur Utilisateur? @relation(fields: [utilisateurId], references: [id])
+
+  @@index([utilisateurId])
+  @@index([traite])
+  @@index([type])
+}
+
+enum TypeAlerte {
+  ECHEANCE_PROCEDURE
+  PAIEMENT_RETARD
+  PROVISION_FAIBLE
+  AUDIENCE_PROCHE
+  DOCUMENT_MANQUANT
+  TACHE_URGENTE
+  RENOUVELLEMENT_MANDAT
+}
+
+enum PrioriteAlerte {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+}
+
+enum NiveauRisque {
+  TRES_FAIBLE
+  FAIBLE
+  MOYEN
+  ELEVE
+  TRES_ELEVE
+}
+
+model CommunicationClient {
+  id          String              @id @default(uuid())
+  clientId    String
+  type        TypeCommunication
+  canal       CanalCommunication
+  contenu     String
+  statut      StatutCommunication
+  dateEnvoi   DateTime?
+  dateLecture DateTime?
+  creeLe      DateTime            @default(now())
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([statut])
+}
+
+enum TypeCommunication {
+  RAPPEL_RDVRENDEZ_VOUS
+  RAPPEL_PAIEMENT
+  MISE_A_JOUR_DOSSIER
+  DOCUMENT_PRET
+  CONVOCATION
+}
+
+enum CanalCommunication {
+  SMS
+  WHATSAPP
+  EMAIL
+  APPEL
+}
+
+enum StatutCommunication {
+  EN_ATTENTE
+  ENVOYE
+  DELIVRE
+  LU
+  ECHEC
+}
+
+model Satisfaction {
+  id             String   @id @default(uuid())
+  clientId       String
+  dossierId      String?
+  note           Int // 1-5 étoiles
+  commentaire    String?
+  dimensions     Json // Rapidité, qualité, communication, etc.
+  dateEvaluation DateTime @default(now())
+
+  client  Client   @relation(fields: [clientId], references: [id])
+  dossier Dossier? @relation(fields: [dossierId], references: [id])
+
+  @@index([clientId])
+  @@index([note])
+}
+
+model Counter {
+  key   String @id // Clé unique, ex: "SC240521" pour un dossier du 21/05/2024, "F202405" pour une facture de mai 2024
+  value Int    @default(0) // La valeur actuelle du compteur
+
+  @@map("counters") // Nom de la table en base de données
 }

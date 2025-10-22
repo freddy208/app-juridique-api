@@ -2,97 +2,221 @@ import {
   Controller,
   Post,
   Body,
+  Get,
   UseGuards,
   Req,
-  Get,
-  UnauthorizedException,
+  Res,
+  HttpStatus,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { UseGuards as UseThrottlerGuard } from '@nestjs/common';
 
-// Interface pour cookie
-
-@ApiTags('Auth')
+@ApiTags('Authentification')
 @Controller('auth')
+@UseThrottlerGuard(ThrottlerGuard)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private authService: AuthService) {}
 
-  @ApiOperation({ summary: 'Connexion utilisateur avec email et mot de passe' })
-  @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    const user = await this.authService.validateUser(
-      loginDto.email,
-      loginDto.motDePasse,
-    );
+  @Post('register')
+  @Public()
+  @ApiOperation({ summary: "Inscription d'un nouvel utilisateur" })
+  @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
+  @ApiResponse({
+    status: 409,
+    description: 'Un utilisateur avec cet email existe déjà',
+  })
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const authResponse = await this.authService.register(registerDto);
+    // Définir les cookies HTTP-only pour les tokens
+    response.cookie('access_token', authResponse.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 3600000, // 1 heure
+    });
 
-    const { access_token, refresh_token } = await this.authService.login(user);
+    response.cookie('refresh_token', authResponse.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 604800000, // 7 jours
+    });
 
-    // Plus de cookie a utiliser
-    return { access_token, refresh_token, user };
+    return {
+      message: 'Inscription réussie',
+      utilisateur: authResponse.utilisateur,
+    };
   }
 
-  @ApiOperation({ summary: 'Déconnexion utilisateur' })
+  @Post('login')
+  @Public()
+  @ApiOperation({ summary: "Connexion d'un utilisateur" })
+  @ApiResponse({ status: 200, description: 'Connexion réussie' })
+  @ApiResponse({ status: 401, description: 'Email ou mot de passe incorrect' })
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const authResponse = await this.authService.login(loginDto);
+    // Définir les cookies HTTP-only pour les tokens
+    response.cookie('access_token', authResponse.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 3600000, // 1 heure
+    });
+
+    response.cookie('refresh_token', authResponse.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 604800000, // 7 jours
+    });
+
+    return {
+      message: 'Connexion réussie',
+      utilisateur: authResponse.utilisateur,
+    };
+  }
+
   @Post('logout')
-  @Post('logout')
-  @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async logout(@Req() req: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    await this.authService.logout({ id: req.user.id, email: req.user.email });
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Déconnexion d'un utilisateur" })
+  @ApiResponse({ status: 200, description: 'Déconnexion réussie' })
+  async logout(
+    @CurrentUser('id') userId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.authService.logout(userId);
+    // Supprimer les cookies
+    response.clearCookie('access_token');
+    response.clearCookie('refresh_token');
+
     return { message: 'Déconnexion réussie' };
   }
 
-  @ApiOperation({ summary: 'Rafraîchir le token JWT' })
   @Post('refresh')
-  @Post('refresh')
-  async refresh(@Body('refresh_token') refreshToken: string) {
+  @Public()
+  @ApiOperation({ summary: "Rafraîchir les tokens d'accès" })
+  @ApiResponse({ status: 200, description: 'Tokens rafraîchis avec succès' })
+  @ApiResponse({ status: 401, description: 'Refresh token invalide ou expiré' })
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const refreshToken =
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      request.cookies.refresh_token || request.body.refreshToken;
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token manquant');
+      response.status(HttpStatus.UNAUTHORIZED);
+      return { message: 'Refresh token manquant' };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const payload = await this.authService.decodeRefreshToken(refreshToken);
-    return await this.authService.refreshToken(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-      payload.sub,
-      refreshToken,
-    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const authResponse = await this.authService.refreshTokens(refreshToken);
+    // Définir les cookies HTTP-only pour les nouveaux tokens
+    response.cookie('access_token', authResponse.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 3600000, // 1 heure
+    });
+
+    response.cookie('refresh_token', authResponse.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 604800000, // 7 jours
+    });
+
+    return {
+      message: 'Tokens rafraîchis avec succès',
+      utilisateur: authResponse.utilisateur,
+    };
   }
 
-  @ApiOperation({ summary: 'Créer un nouvel utilisateur (admin seulement)' })
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard)
-  @Post('register')
-  async register(@Req() req: any, @Body() dto: RegisterDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    return this.authService.register(req.user, dto);
-  }
-
-  @ApiOperation({ summary: 'Récupérer les informations du user connecté' })
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard)
-  @Get('me')
-  async me(@Req() req: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    return this.authService.me(req.user.id);
-  }
-
-  @ApiOperation({
-    summary: 'Envoyer un email pour réinitialiser le mot de passe',
-  })
   @Post('forgot-password')
-  async forgotPassword(@Body() body: ForgotPasswordDto) {
-    return this.authService.forgotPassword(body.email);
+  @Public()
+  @ApiOperation({ summary: 'Demander une réinitialisation de mot de passe' })
+  @ApiResponse({ status: 200, description: 'Email de réinitialisation envoyé' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(forgotPasswordDto);
+    return {
+      message:
+        'Si cet email existe dans notre système, un email de réinitialisation a été envoyé',
+    };
   }
 
-  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec le token' })
   @Post('reset-password')
-  async resetPassword(@Body() body: ResetPasswordDto) {
-    return this.authService.resetPassword(body.token, body.nouveauMotDePasse);
+  @Public()
+  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mot de passe réinitialisé avec succès',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token de réinitialisation invalide ou expiré',
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    await this.authService.resetPassword(resetPasswordDto);
+    return { message: 'Mot de passe réinitialisé avec succès' };
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Changer le mot de passe de l'utilisateur connecté",
+  })
+  @ApiResponse({ status: 200, description: 'Mot de passe changé avec succès' })
+  @ApiResponse({ status: 401, description: 'Ancien mot de passe incorrect' })
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.authService.changePassword(userId, changePasswordDto);
+    // Supprimer les cookies pour forcer la reconnexion
+    response.clearCookie('access_token');
+    response.clearCookie('refresh_token');
+
+    return {
+      message: 'Mot de passe changé avec succès. Veuillez vous reconnecter.',
+    };
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
+  @ApiResponse({ status: 200, description: 'Profil récupéré avec succès' })
+  getProfile(@CurrentUser() utilisateur: any) {
+    return {
+      message: 'Profil récupéré avec succès',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      utilisateur,
+    };
   }
 }

@@ -1,43 +1,56 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ValidationPipe } from './common/pipes/validation.pipe';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { Request, Response } from 'express'; // Importer les types Request et Response
+import { Request, Response } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // Utiliser la méthode NestJS pour servir des fichiers statiques
+  const configService = app.get(ConfigService);
+
+  // Servir des fichiers statiques
   app.useStaticAssets(join(__dirname, '..', 'exports'), {
     prefix: '/exports/',
   });
 
-  // ⚡ Configurer CORS correctement
+  // Configuration de CORS
   app.enableCors({
     origin: [
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      ...(configService.get('app.cors.origin') || []),
       'http://localhost:3000',
       'https://app-juridique-frontend.vercel.app',
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
   });
 
-  // Préfixe global
+  // Préfixe global versionné
   app.setGlobalPrefix('api/v1');
 
-  // Validation automatique des DTOs
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
+  // Pipes globaux améliorés
+  app.useGlobalPipes(new ValidationPipe());
+
+  // Intercepteurs globaux
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new TransformInterceptor(),
   );
 
+  // Filtres d'exception globaux
+  app.useGlobalFilters(new HttpExceptionFilter(), new PrismaExceptionFilter());
+
   // Swagger configuration
-  const config = new DocumentBuilder()
-    .setTitle('API Cabinet Juridique')
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Cabinet Juridique 237 API')
     .setDescription("Documentation officielle de l'API")
     .setVersion('1.0')
     .addBearerAuth(
@@ -46,25 +59,27 @@ async function bootstrap() {
     )
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  // Rediriger `/` vers `/docs` avec typage correct
+  // Rediriger `/` vers `/docs`
   const httpAdapter = app.getHttpAdapter();
   httpAdapter.get('/', (req: Request, res: Response) => {
     res.redirect('/docs');
   });
 
-  const port = process.env.PORT ?? 3000;
+  // Démarrage de l'application
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const port = configService.get('app.port') ?? process.env.PORT ?? 3000;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   await app.listen(port);
   console.log(`API running: http://localhost:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
 
 bootstrap().catch((err: Error) => {
-  // Typage correct pour l'erreur
   console.error('Error during bootstrap:', err);
   process.exit(1);
 });

@@ -1,54 +1,49 @@
-// src/app.module.ts
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { PrismaModule } from './prisma.module';
 import { AuthModule } from './auth/auth.module';
-import { UtilisateurModule } from './utilisateur/utilisateurs.module';
-import { ClientsModule } from './clients/clients.module';
-import { DossiersModule } from './dossiers/dossiers.module';
-import { DocumentsModule } from './documents/documents.module';
-import { CloudinaryModule } from './cloudinary/cloudinary.module';
-import { TachesModule } from './taches/taches.module';
-import { EvenementsModule } from './evenements/evenements.module';
-import { MessagesModule } from './messages/messages.module';
-import { FacturesModule } from './factures/factures.module';
-import { DashboardModule } from './dashboard/dashboard.module';
-import { PermissionsModule } from './permissions/permissions.module';
-
-// Importation correcte du module de cache
-import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-store';
+import appConfig from './config/app.config';
+import databaseConfig from './config/database.config';
+import jwtConfig from './config/jwt.config';
+import emailConfig from './config/email.config';
+import cloudinaryConfig from './config/cloudinary.config';
+import mobileMoneyConfig from './config/mobile-money.config';
 
 @Module({
   imports: [
-    // Configuration du CacheModule
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    CacheModule.register({
-      isGlobal: true, // Rend le cache disponible dans toute l'application
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      store: redisStore as any, // 'as any' est un contournement courant pour les types
-      host: 'localhost',
-      port: 6379,
-      ttl: 600, // Durée de vie par défaut du cache en secondes
-    }),
+    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        emailConfig,
+        cloudinaryConfig,
+        mobileMoneyConfig,
+      ],
+      envFilePath: '.env',
     }),
+
+    // Limitation de débit
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const ttl = config.get<number>('app.throttler.ttl') ?? 60;
+        const limit = config.get<number>('app.throttler.limit') ?? 10;
+        return {
+          ttl,
+          limit,
+        } as unknown as import('@nestjs/throttler').ThrottlerModuleOptions; // TypeScript détectera correctement
+      },
+    }),
+
+    // Base de données
+    PrismaModule,
+
     AuthModule,
-    UtilisateurModule,
-    ClientsModule,
-    DossiersModule,
-    DocumentsModule,
-    CloudinaryModule,
-    TachesModule,
-    EvenementsModule,
-    MessagesModule,
-    FacturesModule,
-    DashboardModule,
-    PermissionsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

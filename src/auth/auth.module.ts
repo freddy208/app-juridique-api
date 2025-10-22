@@ -1,23 +1,30 @@
 import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { PrismaService } from '../prisma.service';
+import { AuthController } from './auth.controller';
+import { PrismaModule } from '../prisma.module';
 import { JwtModule } from '@nestjs/jwt';
-import { jwtConstants } from './constants';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { MailService } from '../mail/mail.service';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MailModule } from '../mail/mail.module';
+import { PassportModule } from '@nestjs/passport';
 
 @Module({
-  controllers: [AuthController],
-  providers: [AuthService, PrismaService, JwtStrategy, MailService],
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true, // rend les variables d'environnement accessibles partout
+    PrismaModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get('jwt.secret'),
+        signOptions: {
+          expiresIn: configService.get('jwt.expiresIn'),
+        },
+      }),
+      inject: [ConfigService],
     }),
-    JwtModule.register({
-      secret: jwtConstants.secret,
-    }),
+    MailModule,
   ],
+  controllers: [AuthController],
+  providers: [AuthService],
+  exports: [AuthService],
 })
 export class AuthModule {}
