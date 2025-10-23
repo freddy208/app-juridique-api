@@ -14,6 +14,11 @@ model Utilisateur {
   nom                  String
   email                String                @unique
   motDePasse           String
+  telephone            String? // ✅ ajouté
+  adresse              String? // ✅ ajouté
+  specialite           String? // ✅ ajouté
+  barreau              String? // ✅ ajouté
+  numeroPermis         String? // ✅ ajouté
   role                 RoleUtilisateur       @default(ASSISTANT)
   statut               StatutUtilisateur     @default(ACTIF)
   creeLe               DateTime              @default(now())
