@@ -23,12 +23,10 @@ async function bootstrap() {
   // Configuration de CORS
   app.enableCors({
     origin: [
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      ...(configService.get('app.cors.origin') || []),
-      'http://localhost:3000',
       'https://app-juridique-frontend.vercel.app',
+      'http://localhost:3000',
     ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
