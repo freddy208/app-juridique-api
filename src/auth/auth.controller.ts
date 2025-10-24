@@ -53,6 +53,7 @@ export class AuthController {
       sameSite: 'none',
       maxAge: 3600000, // 1h
       path: '/',
+      partitioned: true,
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
@@ -61,6 +62,7 @@ export class AuthController {
       sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
       path: '/',
+      partitioned: true,
     });
 
     return {
@@ -86,6 +88,7 @@ export class AuthController {
       sameSite: 'none',
       maxAge: 3600000,
       path: '/',
+      partitioned: true,
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
@@ -94,6 +97,7 @@ export class AuthController {
       sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
+      partitioned: true,
     });
 
     return {
@@ -121,6 +125,7 @@ export class AuthController {
       path: '/',
       sameSite: 'none',
       secure: process.env.NODE_ENV === 'production',
+      partitioned: true,
     });
 
     return { message: 'Déconnexion réussie' };
@@ -152,6 +157,7 @@ export class AuthController {
       sameSite: 'none',
       maxAge: 3600000,
       path: '/',
+      partitioned: true,
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
@@ -160,6 +166,7 @@ export class AuthController {
       sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
+      partitioned: true,
     });
 
     return {
@@ -215,11 +222,13 @@ export class AuthController {
       path: '/',
       sameSite: 'none',
       secure: process.env.NODE_ENV === 'production',
+      partitioned: true,
     });
     response.clearCookie('refresh_token', {
       path: '/',
       sameSite: 'none',
       secure: process.env.NODE_ENV === 'production',
+      partitioned: true,
     });
 
     return {
