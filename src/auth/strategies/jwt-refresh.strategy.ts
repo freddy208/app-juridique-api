@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../..//prisma.service';
+import { Request } from 'express';
+import { PrismaService } from '../../prisma.service';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
@@ -16,14 +17,23 @@ export class JwtRefreshStrategy extends PassportStrategy(
     const refreshSecret = configService.get<string>('jwt.refreshSecret');
     if (!refreshSecret) {
       throw new Error(
-        'Le secret JWT de refresh n’est pas défini dans la configuration',
+        "Le secret JWT de refresh n'est pas défini dans la configuration",
       );
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromBodyField('refreshToken'),
+      // ✅ MODIFICATION ICI : Extraire depuis les cookies
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (request: Request) => {
+          // Extraire depuis le cookie 'refresh_token'
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return request?.cookies?.refresh_token;
+        },
+        // Fallback : extraire depuis le body
+        ExtractJwt.fromBodyField('refreshToken'),
+      ]),
       ignoreExpiration: false,
-      secretOrKey: refreshSecret, // ✅ TypeScript est content et sécurité assurée
+      secretOrKey: refreshSecret,
     });
   }
 
