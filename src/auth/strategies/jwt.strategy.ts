@@ -1,15 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
-import { PrismaService } from '../..//prisma.service';
+import { PrismaService } from '../../prisma.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    configService: ConfigService,
-    private prisma: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {
     const jwtSecret = configService.get<string>('jwt.secret');
     if (!jwtSecret) {
@@ -37,7 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
 
     if (!utilisateur || utilisateur.statut !== 'ACTIF') {
-      throw new Error('Utilisateur non trouvé ou inactif');
+      throw new UnauthorizedException('Utilisateur non trouvé ou inactif');
     }
 
     return utilisateur;
