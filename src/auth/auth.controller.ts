@@ -46,19 +46,19 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const authResponse = await this.authService.register(registerDto);
-    // Définir les cookies HTTP-only pour les tokens
+
     response.cookie('access_token', authResponse.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 3600000, // 1 heure
+      maxAge: 3600000, // 1h
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 604800000, // 7 jours
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
     });
 
     return {
@@ -77,19 +77,19 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const authResponse = await this.authService.login(loginDto);
-    // Définir les cookies HTTP-only pour les tokens
+
     response.cookie('access_token', authResponse.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 3600000, // 1 heure
+      maxAge: 3600000,
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 604800000, // 7 jours
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return {
@@ -108,7 +108,6 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     await this.authService.logout(userId);
-    // Supprimer les cookies
     response.clearCookie('access_token');
     response.clearCookie('refresh_token');
 
@@ -125,9 +124,8 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const refreshToken =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      request.cookies.refresh_token || request.body.refreshToken;
+    const refreshToken = request.cookies.refresh_token;
+
     if (!refreshToken) {
       response.status(HttpStatus.UNAUTHORIZED);
       return { message: 'Refresh token manquant' };
@@ -135,19 +133,19 @@ export class AuthController {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const authResponse = await this.authService.refreshTokens(refreshToken);
-    // Définir les cookies HTTP-only pour les nouveaux tokens
+
     response.cookie('access_token', authResponse.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 3600000, // 1 heure
+      maxAge: 3600000,
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 604800000, // 7 jours
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return {
