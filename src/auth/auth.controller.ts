@@ -242,10 +242,22 @@ export class AuthController {
   @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
   @ApiResponse({ status: 200, description: 'Profil récupéré avec succès' })
   getProfile(@CurrentUser() utilisateur: any) {
-    return {
+    console.log('🔥🔥🔥 ========================================');
+    console.log('🔥🔥🔥 CONTROLLER getProfile() APPELÉ');
+    console.log('🔥🔥🔥 @CurrentUser() utilisateur:', utilisateur);
+    console.log('🔥🔥🔥 typeof utilisateur:', typeof utilisateur);
+    console.log('🔥🔥🔥 utilisateur === undefined?', utilisateur === undefined);
+    console.log('🔥🔥🔥 utilisateur === null?', utilisateur === null);
+    console.log('🔥🔥🔥 ========================================');
+    const responseData = {
       message: 'Profil récupéré avec succès',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       utilisateur,
     };
+    console.log(
+      '🔥🔥🔥 Réponse à envoyer:',
+      JSON.stringify(responseData, null, 2),
+    );
+    return responseData;
   }
 }
