@@ -50,15 +50,17 @@ export class AuthController {
     response.cookie('access_token', authResponse.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'none',
       maxAge: 3600000, // 1h
+      path: '/',
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+      path: '/',
     });
 
     return {
@@ -83,6 +85,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
       maxAge: 3600000,
+      path: '/',
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
@@ -90,6 +93,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     return {
@@ -108,8 +112,16 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     await this.authService.logout(userId);
-    response.clearCookie('access_token');
-    response.clearCookie('refresh_token');
+    response.clearCookie('access_token', {
+      path: '/',
+      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    response.clearCookie('refresh_token', {
+      path: '/',
+      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+    });
 
     return { message: 'Déconnexion réussie' };
   }
@@ -139,6 +151,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
       maxAge: 3600000,
+      path: '/',
     });
 
     response.cookie('refresh_token', authResponse.refreshToken, {
@@ -146,6 +159,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     return {
@@ -197,8 +211,16 @@ export class AuthController {
   ) {
     await this.authService.changePassword(userId, changePasswordDto);
     // Supprimer les cookies pour forcer la reconnexion
-    response.clearCookie('access_token');
-    response.clearCookie('refresh_token');
+    response.clearCookie('access_token', {
+      path: '/',
+      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    response.clearCookie('refresh_token', {
+      path: '/',
+      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+    });
 
     return {
       message: 'Mot de passe changé avec succès. Veuillez vous reconnecter.',
