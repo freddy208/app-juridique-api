@@ -8,7 +8,6 @@ import {
   Delete,
   Query,
   UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -24,6 +23,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -41,6 +41,7 @@ export class UsersController {
 
   @Post()
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 créations/minute
   @ApiOperation({ summary: 'Créer un nouvel utilisateur' })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
   @ApiResponse({
@@ -76,11 +77,15 @@ export class UsersController {
     return this.usersService.findAll({ ...paginationParams, ...filters });
   }
 
+  // ✅ CORRECTION: Toutes les routes SPÉCIFIQUES avant les routes DYNAMIQUES
+
   @Get('search')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 recherches/minute
   @ApiOperation({ summary: 'Rechercher des utilisateurs' })
   @ApiResponse({ status: 200, description: 'Résultats de recherche' })
-  search(@Query('q') query: string) {
-    return this.usersService.search(query);
+  search(@Query('q') query: string, @Query('limit') limit?: string) {
+    const searchLimit = limit ? parseInt(limit, 10) : 10;
+    return this.usersService.search(query, searchLimit);
   }
 
   @Get('stats')
@@ -113,12 +118,27 @@ export class UsersController {
     return this.usersService.getAvailableStatuses();
   }
 
-  @Get('profile')
+  @Get('me')
   @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
   @ApiResponse({ status: 200, description: "Profil de l'utilisateur" })
-  getProfile(@CurrentUser('id') userId: string) {
+  getCurrentUserProfile(@CurrentUser('id') userId: string) {
     return this.usersService.findOne(userId);
   }
+
+  @Patch('me')
+  @ApiOperation({
+    summary: "Mettre à jour le profil de l'utilisateur connecté",
+  })
+  @ApiResponse({ status: 200, description: 'Profil mis à jour' })
+  @Audit('UPDATE_PROFILE')
+  updateCurrentUserProfile(
+    @CurrentUser('id') userId: string,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateProfile(userId, updateProfileDto);
+  }
+
+  // ✅ Routes dynamiques EN DERNIER
 
   @Get(':id')
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG, RoleUtilisateur.SECRETAIRE)
@@ -139,19 +159,6 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  @Patch('profile')
-  @ApiOperation({
-    summary: "Mettre à jour le profil de l'utilisateur connecté",
-  })
-  @ApiResponse({ status: 200, description: 'Profil mis à jour' })
-  @Audit('UPDATE_PROFILE')
-  updateProfile(
-    @CurrentUser('id') userId: string,
-    @Body() updateProfileDto: UpdateProfileDto,
-  ) {
-    return this.usersService.updateProfile(userId, updateProfileDto);
-  }
-
   @Patch(':id/status')
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
   @ApiOperation({ summary: "Changer le statut d'un utilisateur" })
@@ -168,6 +175,7 @@ export class UsersController {
   @Post('bulk-action')
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 actions massives/minute
   @ApiOperation({
     summary: 'Effectuer une action en masse sur des utilisateurs',
   })
@@ -180,9 +188,13 @@ export class UsersController {
   @Delete(':id')
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Supprimer un utilisateur' })
+  @ApiOperation({ summary: 'Supprimer un utilisateur (soft delete)' })
   @ApiResponse({ status: 200, description: 'Utilisateur supprimé' })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  @ApiResponse({
+    status: 400,
+    description: 'Impossible de supprimer cet utilisateur',
+  })
   @Audit('DELETE_USER')
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);

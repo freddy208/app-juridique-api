@@ -148,91 +148,25 @@ describe('UsersController', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('should return a single user by ID', async () => {
-      service.findOne.mockResolvedValue(mockUser);
+  describe('search', () => {
+    it('should return search results for users', async () => {
+      service.search.mockResolvedValue([mockUser]);
 
-      const result = await controller.findOne('1');
+      const result = await controller.search('john', '10');
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.findOne).toHaveBeenCalledWith('1');
-      expect(result).toEqual(mockUser);
+      expect(service.search).toHaveBeenCalledWith('john', 10);
+      expect(result).toEqual([mockUser]);
     });
-  });
 
-  describe('update', () => {
-    it('should update a user', async () => {
-      const updateUserDto: UpdateUserDto = { prenom: 'Jane' };
-      const updatedUser = { ...mockUser, prenom: 'Jane' };
-      service.update.mockResolvedValue(updatedUser);
+    it('should use default limit when not provided', async () => {
+      service.search.mockResolvedValue([mockUser]);
 
-      const result = await controller.update('1', updateUserDto);
+      const result = await controller.search('john');
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.update).toHaveBeenCalledWith('1', updateUserDto);
-      expect(result.prenom).toBe('Jane');
-    });
-  });
-
-  describe('updateProfile', () => {
-    it('should update the profile of the current user', async () => {
-      const updateProfileDto: UpdateProfileDto = { prenom: 'Jane' };
-      service.updateProfile.mockResolvedValue(mockUser);
-
-      const result = await controller.updateProfile('1', updateProfileDto);
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.updateProfile).toHaveBeenCalledWith('1', updateProfileDto);
-      expect(result).toEqual(mockUser);
-    });
-  });
-
-  describe('changeStatus', () => {
-    it('should change the status of a user', async () => {
-      const changeStatusDto: ChangeStatusDto = {
-        statut: StatutUtilisateur.INACTIF,
-        raison: 'Test',
-      };
-      service.changeStatus.mockResolvedValue(mockUser);
-
-      const result = await controller.changeStatus('1', changeStatusDto);
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.changeStatus).toHaveBeenCalledWith('1', changeStatusDto);
-      expect(result).toEqual(mockUser);
-    });
-  });
-
-  describe('remove', () => {
-    it('should remove a user', async () => {
-      const response = { message: 'Utilisateur supprimé avec succès' };
-      service.remove.mockResolvedValue(response);
-
-      const result = await controller.remove('1');
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.remove).toHaveBeenCalledWith('1');
-      expect(result).toEqual(response);
-    });
-  });
-
-  describe('bulkAction', () => {
-    it('should perform a bulk action on users', async () => {
-      const bulkActionDto: BulkActionDto = {
-        userIds: ['1', '2'],
-        action: 'changeRole',
-        role: RoleUtilisateur.SECRETAIRE,
-      };
-      const response = {
-        message: '2 utilisateurs mis à jour avec le rôle SECRETAIRE',
-      };
-      service.bulkAction.mockResolvedValue(response);
-
-      const result = await controller.bulkAction(bulkActionDto);
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.bulkAction).toHaveBeenCalledWith(bulkActionDto);
-      expect(result).toEqual(response);
+      expect(service.search).toHaveBeenCalledWith('john', 10);
+      expect(result).toEqual([mockUser]);
     });
   });
 
@@ -260,21 +194,12 @@ describe('UsersController', () => {
     });
   });
 
-  describe('search', () => {
-    it('should return search results for users', async () => {
-      service.search.mockResolvedValue([mockUser]);
-
-      const result = await controller.search('john');
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.search).toHaveBeenCalledWith('john');
-      expect(result).toEqual([mockUser]);
-    });
-  });
-
   describe('getAvailableRoles', () => {
     it('should return a list of available roles', () => {
-      const roles = Object.values(RoleUtilisateur);
+      const roles = Object.values(RoleUtilisateur).map((role) => ({
+        value: role,
+        label: role,
+      }));
       service.getAvailableRoles.mockReturnValue(roles);
 
       const result = controller.getAvailableRoles();
@@ -282,13 +207,16 @@ describe('UsersController', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.getAvailableRoles).toHaveBeenCalled();
       expect(result).toEqual(roles);
-      expect(result).toContain(RoleUtilisateur.ADMIN);
+      expect(result.some((r) => r.value === RoleUtilisateur.ADMIN)).toBe(true);
     });
   });
 
   describe('getAvailableStatuses', () => {
     it('should return a list of available statuses', () => {
-      const statuses = Object.values(StatutUtilisateur);
+      const statuses = Object.values(StatutUtilisateur).map((statut) => ({
+        value: statut,
+        label: statut,
+      }));
       service.getAvailableStatuses.mockReturnValue(statuses);
 
       const result = controller.getAvailableStatuses();
@@ -296,7 +224,125 @@ describe('UsersController', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.getAvailableStatuses).toHaveBeenCalled();
       expect(result).toEqual(statuses);
-      expect(result).toContain(StatutUtilisateur.ACTIF);
+      expect(result.some((s) => s.value === StatutUtilisateur.ACTIF)).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('getCurrentUserProfile', () => {
+    it('should return the current user profile', async () => {
+      service.findOne.mockResolvedValue(mockUser);
+
+      const result = await controller.getCurrentUserProfile('1');
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findOne).toHaveBeenCalledWith('1');
+      expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('updateCurrentUserProfile', () => {
+    it('should update the profile of the current user', async () => {
+      const updateProfileDto: UpdateProfileDto = { prenom: 'Jane' };
+      const updatedUser = { ...mockUser, prenom: 'Jane' };
+      service.updateProfile.mockResolvedValue(updatedUser);
+
+      const result = await controller.updateCurrentUserProfile(
+        '1',
+        updateProfileDto,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.updateProfile).toHaveBeenCalledWith('1', updateProfileDto);
+      expect(result).toEqual(updatedUser);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a single user by ID', async () => {
+      service.findOne.mockResolvedValue(mockUser);
+
+      const result = await controller.findOne('1');
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.findOne).toHaveBeenCalledWith('1');
+      expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('update', () => {
+    it('should update a user', async () => {
+      const updateUserDto: UpdateUserDto = { prenom: 'Jane' };
+      const updatedUser = { ...mockUser, prenom: 'Jane' };
+      service.update.mockResolvedValue(updatedUser);
+
+      const result = await controller.update('1', updateUserDto);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.update).toHaveBeenCalledWith('1', updateUserDto);
+      expect(result.prenom).toBe('Jane');
+    });
+  });
+
+  describe('changeStatus', () => {
+    it('should change the status of a user', async () => {
+      const changeStatusDto: ChangeStatusDto = {
+        statut: StatutUtilisateur.INACTIF,
+        raison: 'Test',
+      };
+      const updatedUser = { ...mockUser, statut: StatutUtilisateur.INACTIF };
+      service.changeStatus.mockResolvedValue(updatedUser);
+
+      const result = await controller.changeStatus('1', changeStatusDto);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.changeStatus).toHaveBeenCalledWith('1', changeStatusDto);
+      expect(result).toEqual(updatedUser);
+    });
+  });
+
+  describe('bulkAction', () => {
+    it('should perform a bulk action on users', async () => {
+      const bulkActionDto: BulkActionDto = {
+        userIds: ['1', '2'],
+        action: 'changeRole',
+        role: RoleUtilisateur.SECRETAIRE,
+      };
+      const response = {
+        message: '2 utilisateurs mis à jour avec le rôle SECRETAIRE',
+        count: 2,
+      };
+      service.bulkAction.mockResolvedValue(response);
+
+      const result = await controller.bulkAction(bulkActionDto);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.bulkAction).toHaveBeenCalledWith(bulkActionDto);
+      expect(result).toEqual(response);
+    });
+  });
+
+  describe('remove', () => {
+    it('should remove a user', async () => {
+      const response = {
+        message: 'Utilisateur supprimé avec succès',
+        user: {
+          id: mockUser.id,
+          prenom: mockUser.prenom,
+          nom: mockUser.nom,
+          email: mockUser.email,
+          statut: mockUser.statut,
+        },
+      };
+      service.remove.mockResolvedValue(response);
+
+      const result = await controller.remove('1');
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(service.remove).toHaveBeenCalledWith('1');
+      expect(result).toEqual(response);
+      expect(result.user.id).toBe('1');
     });
   });
 });

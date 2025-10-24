@@ -42,6 +42,12 @@ model Utilisateur {
   Fichier              Fichier[]
   PerformanceAvocat    PerformanceAvocat[]
   Alerte               Alerte[]
+
+  @@index([role])
+  @@index([statut])
+  @@index([role, statut])
+  @@index([creeLe])
+  @@map("Utilisateur")
 }
 
 model Client {
