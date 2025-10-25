@@ -84,7 +84,9 @@ export class UsersService {
     });
 
     // ✅ CORRECTION: Typage strict Prisma
-    const where: Prisma.UtilisateurWhereInput = {};
+    const where: Prisma.UtilisateurWhereInput = {
+      statut: statut ?? StatutUtilisateur.ACTIF,
+    };
 
     if (role) {
       where.role = role;
@@ -138,6 +140,7 @@ export class UsersService {
           numeroPermis: true,
           creeLe: true,
           modifieLe: true,
+          derniereConnexion: true,
         },
       }),
       this.prisma.utilisateur.count({ where }),
@@ -168,6 +171,7 @@ export class UsersService {
         numeroPermis: true,
         creeLe: true,
         modifieLe: true,
+        derniereConnexion: true,
       },
     });
 
@@ -195,6 +199,7 @@ export class UsersService {
         numeroPermis: true,
         creeLe: true,
         modifieLe: true,
+        derniereConnexion: true,
       },
     });
   }
@@ -253,6 +258,7 @@ export class UsersService {
         numeroPermis: true,
         creeLe: true,
         modifieLe: true,
+        derniereConnexion: true,
       },
     });
   }
@@ -335,6 +341,7 @@ export class UsersService {
         numeroPermis: true,
         creeLe: true,
         modifieLe: true,
+        derniereConnexion: true,
       },
     });
   }

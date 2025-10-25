@@ -24,6 +24,7 @@ const mockUser = {
   statut: StatutUtilisateur.ACTIF,
   creeLe: new Date(),
   modifieLe: new Date(),
+  derniereConnexion: new Date(),
 };
 
 // Mock pour le résultat paginé

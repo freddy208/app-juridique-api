@@ -95,6 +95,8 @@ export class AuthService {
     );
     if (!isPasswordValid)
       throw new UnauthorizedException('Email ou mot de passe incorrect');
+    // Mettre à jour la dernière connexion
+    await this.updateLastLogin(utilisateur.id);
 
     const tokens = this.generateTokens(
       utilisateur.id,
@@ -278,5 +280,12 @@ export class AuthService {
     for (let i = 0; i < 32; i++)
       token += chars.charAt(Math.floor(Math.random() * chars.length));
     return token;
+  }
+  async updateLastLogin(userId: string) {
+    return this.prisma.utilisateur.update({
+      where: { id: userId },
+      data: { derniereConnexion: new Date() },
+      select: { derniereConnexion: true },
+    });
   }
 }
