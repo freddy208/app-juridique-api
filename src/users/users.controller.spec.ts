@@ -134,13 +134,7 @@ describe('UsersController', () => {
       };
       service.findAll.mockResolvedValue(mockPaginationResult);
 
-      const result = await controller.findAll(
-        '1',
-        '10',
-        'creeLe',
-        'desc',
-        filters,
-      );
+      const result = await controller.findAll(1, 10, 'creeLe', 'desc', filters);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findAll).toHaveBeenCalledWith(expectedParams);
@@ -152,7 +146,7 @@ describe('UsersController', () => {
     it('should return search results for users', async () => {
       service.search.mockResolvedValue([mockUser]);
 
-      const result = await controller.search('john', '10');
+      const result = await controller.search('john', 10);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.search).toHaveBeenCalledWith('john', 10);
@@ -162,7 +156,7 @@ describe('UsersController', () => {
     it('should use default limit when not provided', async () => {
       service.search.mockResolvedValue([mockUser]);
 
-      const result = await controller.search('john');
+      const result = await controller.search('john', 10);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.search).toHaveBeenCalledWith('john', 10);
