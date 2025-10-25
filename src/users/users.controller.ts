@@ -1,3 +1,5 @@
+// users.controller.ts - Version avec Pipes NestJS
+
 import {
   Controller,
   Get,
@@ -10,6 +12,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -29,6 +33,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { RoleUtilisateur } from '@prisma/client';
 
@@ -41,7 +46,7 @@ export class UsersController {
 
   @Post()
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 créations/minute
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Créer un nouvel utilisateur' })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
   @ApiResponse({
@@ -58,34 +63,45 @@ export class UsersController {
   @ApiOperation({
     summary: 'Obtenir la liste des utilisateurs avec pagination et filtres',
   })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiResponse({ status: 200, description: 'Liste des utilisateurs' })
   findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: string,
+    // ✅ Utilisation de ParseIntPipe et DefaultValuePipe pour garantir le type number
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('sortBy', new DefaultValuePipe('creeLe')) sortBy: string,
+    @Query('sortOrder', new DefaultValuePipe('desc')) sortOrder: 'asc' | 'desc',
     @Query() filters?: FilterUsersDto,
   ) {
+    // Validation des limites
+    const validLimit = Math.min(100, Math.max(1, limit));
+    const validPage = Math.max(1, page);
+
     const paginationParams = {
-      page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 10,
-      sortBy: sortBy || 'creeLe',
-      sortOrder:
-        sortOrder === 'asc' || sortOrder === 'desc' ? sortOrder : 'desc',
-    } as const;
+      page: validPage,
+      limit: validLimit,
+      sortBy,
+      sortOrder,
+    };
 
     return this.usersService.findAll({ ...paginationParams, ...filters });
   }
 
-  // ✅ CORRECTION: Toutes les routes SPÉCIFIQUES avant les routes DYNAMIQUES
-
   @Get('search')
-  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 recherches/minute
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Rechercher des utilisateurs' })
+  @ApiQuery({ name: 'q', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Résultats de recherche' })
-  search(@Query('q') query: string, @Query('limit') limit?: string) {
-    const searchLimit = limit ? parseInt(limit, 10) : 10;
-    return this.usersService.search(query, searchLimit);
+  search(
+    @Query('q') query: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    const validLimit = Math.min(50, Math.max(1, limit));
+    return this.usersService.search(query, validLimit);
   }
 
   @Get('stats')
@@ -138,8 +154,6 @@ export class UsersController {
     return this.usersService.updateProfile(userId, updateProfileDto);
   }
 
-  // ✅ Routes dynamiques EN DERNIER
-
   @Get(':id')
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG, RoleUtilisateur.SECRETAIRE)
   @ApiOperation({ summary: 'Obtenir un utilisateur par son ID' })
@@ -175,7 +189,7 @@ export class UsersController {
   @Post('bulk-action')
   @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 actions massives/minute
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Effectuer une action en masse sur des utilisateurs',
   })
