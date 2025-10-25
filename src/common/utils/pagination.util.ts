@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import {
   PaginationParams,
   PaginationResult,
@@ -5,20 +7,15 @@ import {
 
 export class PaginationUtil {
   static getPaginationParams(query: any): PaginationParams {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
     const page = Number.isNaN(parseInt(query.page, 10))
       ? 1
-      : // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-        parseInt(query.page, 10);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+      : parseInt(query.page, 10);
     const limit = Number.isNaN(parseInt(query.limit, 10))
       ? 10
-      : // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-        parseInt(query.limit, 10);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      : parseInt(query.limit, 10);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const sortBy: string = query.sortBy ?? 'creeLe';
     const sortOrder: 'asc' | 'desc' =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     return {
@@ -34,30 +31,51 @@ export class PaginationUtil {
     total: number,
     params: PaginationParams,
   ): PaginationResult<T> {
-    const page: number = params.page ?? 1;
-    const limit: number = params.limit ?? 10;
-    const totalPages = Math.ceil(total / limit);
+    // ✅ CORRECTION : Conversion forcée en number
+    const page =
+      typeof params.page === 'string'
+        ? parseInt(params.page, 10)
+        : (params.page ?? 1);
+    const limit =
+      typeof params.limit === 'string'
+        ? parseInt(params.limit, 10)
+        : (params.limit ?? 10);
+
+    // Validation des valeurs
+    const validPage = Math.max(1, isNaN(page) ? 1 : page);
+    const validLimit = Math.max(1, isNaN(limit) ? 10 : limit);
+    const totalPages = Math.ceil(total / validLimit);
 
     return {
       data,
       total,
-      page,
-      limit,
+      page: validPage,
+      limit: validLimit,
       totalPages,
     };
   }
 
   static getPrismaPaginationParams(params: PaginationParams) {
-    const page: number = params.page ?? 1;
-    const limit: number = params.limit ?? 10;
+    // ✅ CORRECTION CRITIQUE : Conversion forcée en number
+    const page =
+      typeof params.page === 'string'
+        ? parseInt(params.page, 10)
+        : (params.page ?? 1);
+    const limit =
+      typeof params.limit === 'string'
+        ? parseInt(params.limit, 10)
+        : (params.limit ?? 10);
     const sortBy: string = params.sortBy ?? 'creeLe';
     const sortOrder: 'asc' | 'desc' = params.sortOrder ?? 'desc';
 
-    const skip = (page - 1) * limit;
+    // Validation et nettoyage des valeurs
+    const validPage = Math.max(1, isNaN(page) ? 1 : page);
+    const validLimit = Math.max(1, Math.min(100, isNaN(limit) ? 10 : limit));
+    const skip = (validPage - 1) * validLimit;
 
     return {
       skip,
-      take: limit,
+      take: validLimit, // ✅ Maintenant c'est toujours un number
       orderBy: {
         [sortBy]: sortOrder,
       },
