@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { ClientsModule } from './clients/clients.module';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
@@ -47,6 +48,8 @@ import mobileMoneyConfig from './config/mobile-money.config';
     AuthModule,
 
     UsersModule,
+
+    ClientsModule,
   ],
 })
 export class AppModule {}

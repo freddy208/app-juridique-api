@@ -66,15 +66,15 @@ model Client {
   dossiers            Dossier[]
   factures            Facture[]
   notes               Note[]
-  DocumentIdentite    DocumentIdentite[]
   honoraires          Honoraire[]
   paiements           Paiement[]
   provisions          Provision[]
   chiffreAffaires     Decimal?              @default(0)
   statutVIP           Boolean               @default(false)
   derniereVisite      DateTime?
-  CommunicationClient CommunicationClient[]
-  Satisfaction        Satisfaction[]
+  documentIdentite    DocumentIdentite[] // Changez ici
+  communicationClient CommunicationClient[] // Et ici
+  satisfaction        Satisfaction[] // Et ici
 
   @@index([statutVIP])
   @@index([chiffreAffaires])
@@ -455,15 +455,20 @@ model Notification {
 }
 
 model DocumentIdentite {
-  id            String               @id @default(uuid())
-  clientId      String
-  type          TypeDocumentIdentite
-  url           String
-  nomFichier    String
-  tailleFichier Int
-  publicId      String
-  creeLe        DateTime             @default(now())
-  modifieLe     DateTime             @updatedAt
+  id             String               @id @default(uuid())
+  clientId       String
+  type           TypeDocumentIdentite
+  titre          String
+  numero         String?
+  dateDelivrance DateTime?
+  dateExpiration DateTime?
+  lieuDelivrance String?
+  url            String
+  nomFichier     String
+  tailleFichier  Int
+  publicId       String
+  creeLe         DateTime             @default(now())
+  modifieLe      DateTime             @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
@@ -471,9 +476,12 @@ model DocumentIdentite {
 }
 
 enum TypeDocumentIdentite {
-  CARTE_IDENTITE
+  CNI
   PASSEPORT
-  PERMIS
+  PERMIS_CONDUIRE
+  ACTE_NAISSANCE
+  REGISTRE_COMMERCE
+  STATUTS_ENTREPRISE
   AUTRE
 }
 
@@ -541,6 +549,7 @@ enum StatutUtilisateur {
 enum StatutClient {
   ACTIF
   INACTIF
+  ARCHIVE
 }
 
 enum TypeDossier {
@@ -623,6 +632,8 @@ enum StatutFacture {
   PAYEE
   EN_RETARD
   SUPPRIME
+  IMPAYEE
+  PARTIELLE
 }
 
 enum StatutPermission {
@@ -1155,7 +1166,7 @@ model CommunicationClient {
 }
 
 enum TypeCommunication {
-  RAPPEL_RDVRENDEZ_VOUS
+  RAPPEL_RENDEZ_VOUS
   RAPPEL_PAIEMENT
   MISE_A_JOUR_DOSSIER
   DOCUMENT_PRET
