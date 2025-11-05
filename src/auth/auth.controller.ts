@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Controller,
   Post,
@@ -7,6 +9,7 @@ import {
   Req,
   Res,
   HttpStatus,
+  Inject,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -26,6 +29,7 @@ import {
 } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { UseGuards as UseThrottlerGuard } from '@nestjs/common';
+import { RedisService } from '@/redis/redis.service';
 
 @ApiTags('Authentification')
 @Controller('auth')
@@ -140,7 +144,6 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const refreshToken = request.cookies.refresh_token;
 
     if (!refreshToken) {
@@ -244,7 +247,6 @@ export class AuthController {
   getProfile(@CurrentUser() utilisateur: any) {
     const responseData = {
       message: 'Profil récupéré avec succès',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       utilisateur,
     };
     console.log(
@@ -252,5 +254,20 @@ export class AuthController {
       JSON.stringify(responseData, null, 2),
     );
     return responseData;
+  }
+  @Get('test-redis')
+  @Public()
+  async testRedis(@Inject(RedisService) redisService: RedisService) {
+    try {
+      await redisService.set(
+        'test-key',
+        { message: 'Redis fonctionne!', timestamp: new Date() },
+        60,
+      );
+      const result = await redisService.get('test-key');
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 }

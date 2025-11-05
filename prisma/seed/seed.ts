@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+/*import { PrismaClient } from '@prisma/client';
 import { usersSeed } from './users.seed';
 import { permissionsSeed } from './permissions.seed';
 import { modelesDocumentsSeed } from './modeles-documents.seed';
@@ -55,4 +55,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-  });
+  });*/

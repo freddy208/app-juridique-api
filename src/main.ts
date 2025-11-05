@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from './common/pipes/validation.pipe';
@@ -10,7 +13,8 @@ import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
-import * as cookieParser from 'cookie-parser';
+// Correction: utilisation de require pour cookie-parser
+const cookieParser = require('cookie-parser');
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -20,7 +24,7 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'exports'), {
     prefix: '/exports/',
   });
-  app.use(cookieParser());
+  app.use(cookieParser()); // Maintenant cela fonctionnera correctement
 
   // Configuration de CORS
   app.enableCors({
@@ -73,7 +77,6 @@ async function bootstrap() {
   });
 
   // Démarrage de l'application
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const port = configService.get('app.port') ?? process.env.PORT ?? 3000;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   await app.listen(port);

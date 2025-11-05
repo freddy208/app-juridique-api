@@ -5,7 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DIRECT_URL")
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Utilisateur {
@@ -43,6 +44,8 @@ model Utilisateur {
   Fichier              Fichier[]
   PerformanceAvocat    PerformanceAvocat[]
   Alerte               Alerte[]
+  Discussion           Discussion[]
+  etapesResponsable    EtapeProcedure[] // Ajout de cette relation
 
   @@index([role])
   @@index([statut])
@@ -55,11 +58,17 @@ model Client {
   id                  String                @id @default(uuid())
   prenom              String
   nom                 String
-  nomEntreprise       String?
+  entreprise          String?
   telephone           String?
   email               String?
   adresse             String?
+  ville               String?
+  pays                String?
+  codePostal          String?
+  typeClient          TypeClient            @default(PARTICULIER)
   statut              StatutClient          @default(ACTIF)
+  numeroClient        String?
+  profession          String?
   creeLe              DateTime              @default(now())
   modifieLe           DateTime              @updatedAt
   correspondances     Correspondance[]
@@ -70,14 +79,21 @@ model Client {
   paiements           Paiement[]
   provisions          Provision[]
   chiffreAffaires     Decimal?              @default(0)
-  statutVIP           Boolean               @default(false)
+  estVIP              Boolean               @default(false)
   derniereVisite      DateTime?
-  documentIdentite    DocumentIdentite[] // Changez ici
-  communicationClient CommunicationClient[] // Et ici
-  satisfaction        Satisfaction[] // Et ici
+  documentIdentite    DocumentIdentite[]
+  communicationClient CommunicationClient[]
+  satisfaction        Satisfaction[]
 
-  @@index([statutVIP])
+  @@index([estVIP])
   @@index([chiffreAffaires])
+}
+
+enum TypeClient {
+  PARTICULIER
+  ENTREPRISE
+  ASSOCIATION
+  ADMINISTRATION
 }
 
 model Dossier {
@@ -118,6 +134,7 @@ model Dossier {
   risqueJuridique  NiveauRisque?
   chancesSucces    Int? // Pourcentage 0-100
   Satisfaction     Satisfaction[]
+  Discussion       Discussion[]
 
   // Index pour les performances
   @@index([statut])
@@ -316,38 +333,32 @@ model EvenementCalendrier {
   dossier     Dossier?        @relation(fields: [dossierId], references: [id])
 }
 
+model Discussion {
+  id         String           @id @default(uuid())
+  titre      String?
+  statut     StatutDiscussion @default(ACTIF)
+  dossierId  String?
+  createurId String
+  creeLe     DateTime         @default(now())
+  modifieLe  DateTime         @updatedAt
+  messages   MessageChat[]
+  createur   Utilisateur      @relation(fields: [createurId], references: [id])
+  dossier    Dossier?         @relation(fields: [dossierId], references: [id])
+}
+
 model MessageChat {
   id              String            @id @default(uuid())
-  dossierId       String?
+  discussionId    String // Obligatoire : chaque message appartient à une discussion
   expediteurId    String
   contenu         String
   statut          StatutMessage     @default(ENVOYE)
   creeLe          DateTime          @default(now())
   modifieLe       DateTime          @updatedAt
-  dossier         Dossier?          @relation(fields: [dossierId], references: [id])
+  discussion      Discussion        @relation(fields: [discussionId], references: [id], onDelete: Cascade)
   expediteur      Utilisateur       @relation(fields: [expediteurId], references: [id])
+  Dossier         Dossier?          @relation(fields: [dossierId], references: [id])
+  dossierId       String?
   ReactionMessage ReactionMessage[]
-}
-
-model Facture {
-  id            String        @id @default(uuid())
-  dossierId     String?
-  clientId      String
-  numeroFacture String        @unique // <-- AJOUT : Numéro de facture unique
-  montant       Decimal
-  dateEcheance  DateTime
-  payee         Boolean       @default(false)
-  statut        StatutFacture @default(BROUILLON)
-  creeLe        DateTime      @default(now())
-  modifieLe     DateTime      @updatedAt
-  client        Client        @relation(fields: [clientId], references: [id])
-  dossier       Dossier?      @relation(fields: [dossierId], references: [id])
-  paiements     Paiement[]
-  montantHT     Decimal?
-  montantTVA    Decimal?
-  montantTTC    Decimal?
-  solde         Decimal?
-  relances      Json? // Historique des relances
 }
 
 model PermissionRole {
@@ -403,6 +414,7 @@ model Correspondance {
 
 model Note {
   id            String      @id @default(uuid())
+  titre         String?
   clientId      String?
   dossierId     String?
   utilisateurId String
@@ -473,6 +485,41 @@ model DocumentIdentite {
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
+}
+
+model Facture {
+  id           String        @id @default(uuid())
+  clientId     String
+  dossierId    String?
+  numero       String?       @unique
+  dateEmission DateTime      @default(now())
+  dateEcheance DateTime?
+  montantTotal Float         @default(0)
+  montantPaye  Float         @default(0)
+  statut       StatutFacture @default(IMPAYEE)
+  creeLe       DateTime      @default(now())
+  modifieLe    DateTime      @updatedAt
+
+  // Relations
+  client    Client         @relation(fields: [clientId], references: [id])
+  dossier   Dossier?       @relation(fields: [dossierId], references: [id])
+  lignes    LigneFacture[] @relation("FactureLignes") // pas de onDelete ici !
+  paiements Paiement[]     @relation("FacturePaiements") // pas de onDelete ici !
+}
+
+model LigneFacture {
+  id           String             @id @default(uuid())
+  factureId    String
+  description  String
+  quantite     Int                @default(1)
+  prixUnitaire Float
+  montant      Float              @default(0)
+  statut       StatutLigneFacture
+  creeLe       DateTime           @default(now())
+  modifieLe    DateTime           @updatedAt
+
+  // Relation
+  facture Facture @relation("FactureLignes", fields: [factureId], references: [id], onDelete: Cascade)
 }
 
 enum TypeDocumentIdentite {
@@ -626,6 +673,11 @@ enum StatutMessage {
   SUPPRIME
 }
 
+enum StatutDiscussion {
+  ACTIF
+  SUPPRIME
+}
+
 enum StatutFacture {
   BROUILLON
   ENVOYEE
@@ -634,6 +686,11 @@ enum StatutFacture {
   SUPPRIME
   IMPAYEE
   PARTIELLE
+}
+
+enum StatutLigneFacture {
+  ACTIF
+  SUPPRIME
 }
 
 enum StatutPermission {
@@ -691,25 +748,21 @@ model Honoraire {
 }
 
 model Paiement {
-  id           String         @id @default(uuid())
-  honoraireId  String?
-  factureId    String?
-  clientId     String
-  montant      Decimal
-  modePaiement ModePaiement
-  reference    String? // Référence MTN/Orange Money
-  datePayement DateTime       @default(now())
-  validePar    String?
-  statut       StatutPaiement @default(EN_ATTENTE)
-  creeLe       DateTime       @default(now())
-  modifieLe    DateTime       @updatedAt
+  id          String         @id @default(uuid())
+  honoraireId String?
+  factureId   String? // relation optionnelle si factureId nullable
+  clientId    String?
+  montant     Float
+  statut      StatutPaiement
+  date        DateTime       @default(now())
+  mode        ModePaiement
+  creeLe      DateTime       @default(now())
+  modifieLe   DateTime       @updatedAt
 
+  // Relation
+  facture   Facture?   @relation("FacturePaiements", fields: [factureId], references: [id], onDelete: Cascade)
   honoraire Honoraire? @relation(fields: [honoraireId], references: [id])
-  facture   Facture?   @relation(fields: [factureId], references: [id])
-  client    Client     @relation(fields: [clientId], references: [id])
-
-  @@index([clientId])
-  @@index([statut])
+  client    Client?    @relation(fields: [clientId], references: [id])
 }
 
 model Depense {
@@ -766,7 +819,7 @@ model MouvementProvision {
 }
 
 enum TypeHonoraire {
-  FORFAITAIRE
+  FORFAIT
   AU_RESULTAT
   HORAIRE
   MIXTE
@@ -799,6 +852,7 @@ enum StatutPaiement {
   VALIDE
   REJETE
   ANNULE
+  SUPPRIME
 }
 
 enum CategorieDepense {
@@ -931,7 +985,8 @@ model EtapeProcedure {
   creeLe        DateTime    @default(now())
   modifieLe     DateTime    @updatedAt
 
-  procedure Procedure @relation(fields: [procedureId], references: [id])
+  responsable Utilisateur? @relation(fields: [responsableId], references: [id]) // Ajout de cette relation
+  procedure   Procedure    @relation(fields: [procedureId], references: [id])
 
   @@index([procedureId])
 }

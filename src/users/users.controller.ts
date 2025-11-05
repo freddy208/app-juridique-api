@@ -1,5 +1,3 @@
-// users.controller.ts - Version avec Pipes NestJS
-
 import {
   Controller,
   Get,
@@ -10,207 +8,325 @@ import {
   Delete,
   Query,
   UseGuards,
-  HttpCode,
-  HttpStatus,
-  ParseIntPipe,
-  DefaultValuePipe,
+  Request,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ChangeStatusDto } from './dto/change-status.dto';
-import { FilterUsersDto } from './dto/filter-users.dto';
-import { BulkActionDto } from './dto/bulk-action.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Audit } from '../common/decorators/audit.decorator';
-import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { RoleUtilisateur } from '@prisma/client';
+import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangerPasswordDto } from './dto/change-password.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { RequirePermissions } from '../permissions/decorators/permissions.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ParseUUIDPipe } from '../common/pipes/parse-uuid.pipe';
+import { QueryUsersDto } from './dto/filter-users.dto';
 
 @ApiTags('Utilisateurs')
-@Controller('users')
+@Controller('utilisateurs')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @RequirePermissions('UTILISATEURS.ecriture')
   @ApiOperation({ summary: 'Créer un nouvel utilisateur' })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
   @ApiResponse({
     status: 409,
     description: 'Un utilisateur avec cet email existe déjà',
   })
-  @Audit('CREATE_USER')
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
 
   @Get()
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG, RoleUtilisateur.SECRETAIRE)
-  @ApiOperation({
-    summary: 'Obtenir la liste des utilisateurs avec pagination et filtres',
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: 'Récupérer la liste des utilisateurs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des utilisateurs récupérée avec succès',
   })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'sortBy', required: false, type: String })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
-  @ApiResponse({ status: 200, description: 'Liste des utilisateurs' })
-  findAll(
-    // ✅ Utilisation de ParseIntPipe et DefaultValuePipe pour garantir le type number
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('sortBy', new DefaultValuePipe('creeLe')) sortBy: string,
-    @Query('sortOrder', new DefaultValuePipe('desc')) sortOrder: 'asc' | 'desc',
-    @Query() filters?: FilterUsersDto,
-  ) {
-    // Validation des limites
-    const validLimit = Math.min(100, Math.max(1, limit));
-    const validPage = Math.max(1, page);
-
-    const paginationParams = {
-      page: validPage,
-      limit: validLimit,
-      sortBy,
-      sortOrder,
-    };
-
-    return this.usersService.findAll({ ...paginationParams, ...filters });
+  findAll(@Query() query: QueryUsersDto) {
+    return this.usersService.findAll(query);
   }
 
-  @Get('search')
-  @Throttle({ default: { limit: 30, ttl: 60000 } })
-  @ApiOperation({ summary: 'Rechercher des utilisateurs' })
-  @ApiQuery({ name: 'q', required: true, type: String })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'Résultats de recherche' })
-  search(
-    @Query('q') query: string,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  ) {
-    const validLimit = Math.min(50, Math.max(1, limit));
-    return this.usersService.search(query, validLimit);
-  }
-
-  @Get('stats')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @ApiOperation({ summary: 'Obtenir les statistiques des utilisateurs' })
-  @ApiResponse({ status: 200, description: 'Statistiques des utilisateurs' })
-  getStats() {
-    return this.usersService.getStats();
-  }
-
-  @Get('performance')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @ApiOperation({ summary: 'Obtenir les performances des avocats' })
-  @ApiResponse({ status: 200, description: 'Performances des avocats' })
-  getPerformance() {
-    return this.usersService.getPerformance();
-  }
-
-  @Get('roles')
-  @ApiOperation({ summary: 'Obtenir la liste des rôles disponibles' })
-  @ApiResponse({ status: 200, description: 'Liste des rôles disponibles' })
-  getAvailableRoles() {
-    return this.usersService.getAvailableRoles();
-  }
-
-  @Get('statuses')
-  @ApiOperation({ summary: 'Obtenir la liste des statuts disponibles' })
-  @ApiResponse({ status: 200, description: 'Liste des statuts disponibles' })
-  getAvailableStatuses() {
-    return this.usersService.getAvailableStatuses();
-  }
-
-  @Get('me')
-  @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
-  @ApiResponse({ status: 200, description: "Profil de l'utilisateur" })
-  getCurrentUserProfile(@CurrentUser('id') userId: string) {
-    return this.usersService.findOne(userId);
-  }
-
-  @Patch('me')
-  @ApiOperation({
-    summary: "Mettre à jour le profil de l'utilisateur connecté",
+  @Get('avocats/disponibles')
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: 'Récupérer la liste des avocats disponibles' })
+  @ApiQuery({
+    name: 'dateDebut',
+    required: false,
+    description: 'Date de début (format ISO)',
   })
-  @ApiResponse({ status: 200, description: 'Profil mis à jour' })
-  @Audit('UPDATE_PROFILE')
-  updateCurrentUserProfile(
-    @CurrentUser('id') userId: string,
-    @Body() updateProfileDto: UpdateProfileDto,
+  @ApiQuery({
+    name: 'dateFin',
+    required: false,
+    description: 'Date de fin (format ISO)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des avocats disponibles récupérée avec succès',
+  })
+  getAvocatsDisponibles(
+    @Query('dateDebut') dateDebut?: string,
+    @Query('dateFin') dateFin?: string,
   ) {
-    return this.usersService.updateProfile(userId, updateProfileDto);
+    const debut = dateDebut ? new Date(dateDebut) : undefined;
+    const fin = dateFin ? new Date(dateFin) : undefined;
+    return this.usersService.getAvocatsDisponibles(debut, fin);
   }
 
   @Get(':id')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG, RoleUtilisateur.SECRETAIRE)
-  @ApiOperation({ summary: 'Obtenir un utilisateur par son ID' })
-  @ApiResponse({ status: 200, description: "Détails de l'utilisateur" })
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: "Récupérer les détails d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: "Détails de l'utilisateur récupérés avec succès",
+  })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.findOne(id);
   }
 
-  @Patch(':id')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @ApiOperation({ summary: 'Mettre à jour un utilisateur' })
-  @ApiResponse({ status: 200, description: 'Utilisateur mis à jour' })
+  @Get(':id/stats')
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: "Récupérer les statistiques d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: "Statistiques de l'utilisateur récupérées avec succès",
+  })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
-  @Audit('UPDATE_USER')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  getUserStats(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.getUserStats(id);
+  }
+
+  @Get(':id/dossiers')
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: "Récupérer les dossiers d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: "Dossiers de l'utilisateur récupérés avec succès",
+  })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  getUserDossiers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserDossiers(id, query);
+  }
+
+  @Get(':id/taches')
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: "Récupérer les tâches d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: "Tâches de l'utilisateur récupérées avec succès",
+  })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  getUserTaches(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserTaches(id, query);
+  }
+
+  @Get(':id/evenements')
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: "Récupérer les événements d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: "Événements de l'utilisateur récupérés avec succès",
+  })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  getUserEvenements(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserEvenements(id, query);
+  }
+
+  @Get(':id/notifications')
+  @RequirePermissions('UTILISATEURS.lecture')
+  @ApiOperation({ summary: "Récupérer les notifications d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: "Notifications de l'utilisateur récupérées avec succès",
+  })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  getUserNotifications(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserNotifications(id, query);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('UTILISATEURS.ecriture')
+  @ApiOperation({ summary: 'Mettre à jour un utilisateur' })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: 'Utilisateur mis à jour avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  @ApiResponse({
+    status: 409,
+    description: 'Un utilisateur avec cet email existe déjà',
+  })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     return this.usersService.update(id, updateUserDto);
   }
 
-  @Patch(':id/status')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @ApiOperation({ summary: "Changer le statut d'un utilisateur" })
-  @ApiResponse({ status: 200, description: "Statut de l'utilisateur changé" })
+  @Patch(':id/changer-mot-de-passe')
+  @RequirePermissions('UTILISATEURS.ecriture')
+  @ApiOperation({ summary: "Changer le mot de passe d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({ status: 200, description: 'Mot de passe changé avec succès' })
+  @ApiResponse({ status: 400, description: 'Ancien mot de passe incorrect' })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
-  @Audit('CHANGE_USER_STATUS')
-  changeStatus(
-    @Param('id') id: string,
-    @Body() changeStatusDto: ChangeStatusDto,
+  changePassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() changePasswordDto: ChangerPasswordDto,
   ) {
-    return this.usersService.changeStatus(id, changeStatusDto);
+    return this.usersService.changePassword(id, changePasswordDto);
   }
 
-  @Post('bulk-action')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Patch(':id/notifications/lire')
+  @RequirePermissions('UTILISATEURS.ecriture')
   @ApiOperation({
-    summary: 'Effectuer une action en masse sur des utilisateurs',
+    summary: "Marquer toutes les notifications d'un utilisateur comme lues",
   })
-  @ApiResponse({ status: 200, description: 'Action en masse effectuée' })
-  @Audit('BULK_USER_ACTION')
-  bulkAction(@Body() bulkActionDto: BulkActionDto) {
-    return this.usersService.bulkAction(bulkActionDto);
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications marquées comme lues avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  markNotificationsAsRead(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.markNotificationsAsRead(id);
   }
 
   @Delete(':id')
-  @Roles(RoleUtilisateur.ADMIN, RoleUtilisateur.DG)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Supprimer un utilisateur (soft delete)' })
-  @ApiResponse({ status: 200, description: 'Utilisateur supprimé' })
-  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  @RequirePermissions('UTILISATEURS.suppression')
+  @ApiOperation({ summary: 'Supprimer un utilisateur (désactivation)' })
+  @ApiParam({ name: 'id', description: "ID de l'utilisateur" })
   @ApiResponse({
-    status: 400,
-    description: 'Impossible de supprimer cet utilisateur',
+    status: 200,
+    description: 'Utilisateur désactivé avec succès',
   })
-  @Audit('DELETE_USER')
-  remove(@Param('id') id: string) {
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.remove(id);
+  }
+
+  // -------------------- ENDPOINTS POUR L'UTILISATEUR CONNECTÉ --------------------
+  @Get('profile/me')
+  @ApiOperation({ summary: "Récupérer le profil de l'utilisateur connecté" })
+  @ApiResponse({ status: 200, description: 'Profil récupéré avec succès' })
+  getMyProfile(@CurrentUser('id') userId: string) {
+    return this.usersService.findOne(userId);
+  }
+
+  @Get('profile/me/stats')
+  @ApiOperation({
+    summary: "Récupérer les statistiques de l'utilisateur connecté",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques récupérées avec succès',
+  })
+  getMyStats(@CurrentUser('id') userId: string) {
+    return this.usersService.getUserStats(userId);
+  }
+
+  @Get('profile/me/dossiers')
+  @ApiOperation({ summary: "Récupérer les dossiers de l'utilisateur connecté" })
+  @ApiResponse({ status: 200, description: 'Dossiers récupérés avec succès' })
+  getMyDossiers(
+    @CurrentUser('id') userId: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserDossiers(userId, query);
+  }
+
+  @Get('profile/me/taches')
+  @ApiOperation({ summary: "Récupérer les tâches de l'utilisateur connecté" })
+  @ApiResponse({ status: 200, description: 'Tâches récupérées avec succès' })
+  getMyTaches(
+    @CurrentUser('id') userId: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserTaches(userId, query);
+  }
+
+  @Get('profile/me/evenements')
+  @ApiOperation({
+    summary: "Récupérer les événements de l'utilisateur connecté",
+  })
+  @ApiResponse({ status: 200, description: 'Événements récupérés avec succès' })
+  getMyEvenements(
+    @CurrentUser('id') userId: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserEvenements(userId, query);
+  }
+
+  @Get('profile/me/notifications')
+  @ApiOperation({
+    summary: "Récupérer les notifications de l'utilisateur connecté",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications récupérées avec succès',
+  })
+  getMyNotifications(
+    @CurrentUser('id') userId: string,
+    @Query() query: QueryUsersDto,
+  ) {
+    return this.usersService.getUserNotifications(userId, query);
+  }
+
+  @Patch('profile/me/changer-mot-de-passe')
+  @ApiOperation({
+    summary: "Changer le mot de passe de l'utilisateur connecté",
+  })
+  @ApiResponse({ status: 200, description: 'Mot de passe changé avec succès' })
+  @ApiResponse({ status: 400, description: 'Ancien mot de passe incorrect' })
+  changeMyPassword(
+    @CurrentUser('id') userId: string,
+    @Body() changePasswordDto: ChangerPasswordDto,
+  ) {
+    return this.usersService.changePassword(userId, changePasswordDto);
+  }
+
+  @Patch('profile/me/notifications/lire')
+  @ApiOperation({
+    summary:
+      "Marquer toutes les notifications de l'utilisateur connecté comme lues",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications marquées comme lues avec succès',
+  })
+  markMyNotificationsAsRead(@CurrentUser('id') userId: string) {
+    return this.usersService.markNotificationsAsRead(userId);
   }
 }

@@ -1,4 +1,4 @@
-import { PrismaClient, RoleUtilisateur } from '@prisma/client';
+/*import { PrismaClient, RoleUtilisateur } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 export async function usersSeed(prisma: PrismaClient) {
@@ -52,4 +52,4 @@ export async function usersSeed(prisma: PrismaClient) {
 
   console.log('Utilisateurs créés avec succès!');
   return { adminUser, dgUser, avocatUser, secretaireUser };
-}
+}*/

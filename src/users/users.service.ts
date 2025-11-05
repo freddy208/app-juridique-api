@@ -1,34 +1,43 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
-  BadRequestException,
   NotFoundException,
+  BadRequestException,
   ConflictException,
-  UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import * as bcrypt from 'bcryptjs';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ChangeStatusDto } from './dto/change-status.dto';
-import { FilterUsersDto } from './dto/filter-users.dto';
-import { BulkActionDto } from './dto/bulk-action.dto';
-import { UserStats } from './interfaces/user-stats.interface';
-import { UserPerformance } from './interfaces/user-performance.interface';
-import { PaginationParams } from '../common/interfaces/pagination.interface';
+import { ChangerPasswordDto } from './dto/change-password.dto';
+import {
+  UserResponse,
+  UserStatsResponse,
+} from './interfaces/user-response.interface';
+import { RoleUtilisateur, StatutUtilisateur } from '@prisma/client';
 import { PaginationUtil } from '../common/utils/pagination.util';
-import * as bcrypt from 'bcryptjs';
-import { RoleUtilisateur, StatutUtilisateur, Prisma } from '@prisma/client';
+import { QueryUsersDto } from './dto/filter-users.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
-  async create(createUserDto: CreateUserDto) {
+  // -------------------- CRUD DE BASE --------------------
+  async create(createUserDto: CreateUserDto): Promise<UserResponse> {
     const { email, motDePasse, ...userData } = createUserDto;
 
     // Vérifier si l'email existe déjà
     const existingUser = await this.prisma.utilisateur.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email },
     });
 
     if (existingUser) {
@@ -39,10 +48,10 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(motDePasse, 10);
 
     // Créer l'utilisateur
-    return await this.prisma.utilisateur.create({
+    const utilisateur = await this.prisma.utilisateur.create({
       data: {
         ...userData,
-        email: email.toLowerCase(),
+        email,
         motDePasse: hashedPassword,
       },
       select: {
@@ -50,43 +59,46 @@ export class UsersService {
         prenom: true,
         nom: true,
         email: true,
-        role: true,
-        statut: true,
         telephone: true,
         adresse: true,
         specialite: true,
         barreau: true,
         numeroPermis: true,
+        role: true,
+        statut: true,
         creeLe: true,
         modifieLe: true,
+        derniereConnexion: true,
       },
     });
+
+    // Invalider le cache
+    await this.invalidateUsersCache();
+
+    return utilisateur as UserResponse; // Conversion explicite
   }
 
-  async findAll(params: PaginationParams & FilterUsersDto) {
+  async findAll(query: QueryUsersDto) {
     const {
-      page,
-      limit,
-      sortBy,
-      sortOrder,
+      page = 1,
+      limit = 10,
+      sortBy = 'creeLe',
+      sortOrder = 'desc',
       role,
       statut,
       search,
-      specialite,
-      barreau,
-    } = params;
+    } = query;
 
-    const { skip, take, orderBy } = PaginationUtil.getPrismaPaginationParams({
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-    });
+    // Clé de cache pour cette requête
+    const cacheKey = `users:${JSON.stringify(query)}`;
+    const cachedResult = await this.cacheManager.get(cacheKey);
 
-    // ✅ CORRECTION: Typage strict Prisma
-    const where: Prisma.UtilisateurWhereInput = {
-      statut: statut ?? StatutUtilisateur.ACTIF,
-    };
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Construire les filtres
+    const where: any = {};
 
     if (role) {
       where.role = role;
@@ -96,48 +108,40 @@ export class UsersService {
       where.statut = statut;
     }
 
-    if (specialite) {
-      where.specialite = {
-        contains: specialite,
-        mode: 'insensitive',
-      };
-    }
-
-    if (barreau) {
-      where.barreau = {
-        contains: barreau,
-        mode: 'insensitive',
-      };
-    }
-
     if (search) {
       where.OR = [
         { prenom: { contains: search, mode: 'insensitive' } },
         { nom: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
-        { telephone: { contains: search, mode: 'insensitive' } },
+        { specialite: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    // Exécuter la requête avec pagination
-    const [users, total] = await Promise.all([
+    // Obtenir les paramètres de pagination
+    const paginationParams = PaginationUtil.getPrismaPaginationParams({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Exécuter la requête
+    const [utilisateurs, total] = await Promise.all([
       this.prisma.utilisateur.findMany({
         where,
-        skip,
-        take,
-        orderBy,
+        ...paginationParams,
         select: {
           id: true,
           prenom: true,
           nom: true,
           email: true,
-          role: true,
-          statut: true,
           telephone: true,
           adresse: true,
           specialite: true,
           barreau: true,
           numeroPermis: true,
+          role: true,
+          statut: true,
           creeLe: true,
           modifieLe: true,
           derniereConnexion: true,
@@ -146,66 +150,63 @@ export class UsersService {
       this.prisma.utilisateur.count({ where }),
     ]);
 
-    return PaginationUtil.createPaginationResult(users, total, {
+    // Formater la réponse
+    const result = PaginationUtil.createPaginationResult(utilisateurs, total, {
       page,
       limit,
       sortBy,
       sortOrder,
     });
+
+    // Mettre en cache pour 5 minutes
+    await this.cacheManager.set(cacheKey, result, 300);
+
+    return result;
   }
 
-  async findOne(id: string) {
-    const user = await this.prisma.utilisateur.findUnique({
+  async findOne(id: string): Promise<UserResponse> {
+    const cacheKey = `user:${id}`;
+    const cachedUser = await this.cacheManager.get(cacheKey);
+
+    if (cachedUser) {
+      return cachedUser as UserResponse; // Conversion explicite
+    }
+
+    const utilisateur = await this.prisma.utilisateur.findUnique({
       where: { id },
       select: {
         id: true,
         prenom: true,
         nom: true,
         email: true,
-        role: true,
-        statut: true,
         telephone: true,
         adresse: true,
         specialite: true,
         barreau: true,
         numeroPermis: true,
+        role: true,
+        statut: true,
         creeLe: true,
         modifieLe: true,
         derniereConnexion: true,
       },
     });
 
-    if (!user) {
-      throw new NotFoundException('Utilisateur non trouvé');
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
     }
 
-    return user;
+    // Mettre en cache pour 10 minutes
+    await this.cacheManager.set(cacheKey, utilisateur, 600);
+
+    return utilisateur as UserResponse; // Conversion explicite
   }
 
-  async findByEmail(email: string) {
-    return this.prisma.utilisateur.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        prenom: true,
-        nom: true,
-        email: true,
-        role: true,
-        statut: true,
-        telephone: true,
-        adresse: true,
-        specialite: true,
-        barreau: true,
-        numeroPermis: true,
-        creeLe: true,
-        modifieLe: true,
-        derniereConnexion: true,
-      },
-    });
-  }
-
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    const { motDePasse, email, ...userData } = updateUserDto;
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserResponse> {
+    const { email, ...userData } = updateUserDto;
 
     // Vérifier si l'utilisateur existe
     const existingUser = await this.prisma.utilisateur.findUnique({
@@ -213,13 +214,13 @@ export class UsersService {
     });
 
     if (!existingUser) {
-      throw new NotFoundException('Utilisateur non trouvé');
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
     }
 
     // Si l'email est modifié, vérifier qu'il n'existe pas déjà
-    if (email && email.toLowerCase() !== existingUser.email) {
+    if (email && email !== existingUser.email) {
       const emailExists = await this.prisma.utilisateur.findUnique({
-        where: { email: email.toLowerCase() },
+        where: { email },
       });
 
       if (emailExists) {
@@ -227,708 +228,653 @@ export class UsersService {
           'Un utilisateur avec cet email existe déjà',
         );
       }
-    }
-
-    // ✅ CORRECTION: Typage strict Prisma
-    const updateData: Prisma.UtilisateurUpdateInput = {
-      ...userData,
-      ...(email && { email: email.toLowerCase() }),
-    };
-
-    // Si un nouveau mot de passe est fourni, le hasher
-    if (motDePasse) {
-      updateData.motDePasse = await bcrypt.hash(motDePasse, 10);
     }
 
     // Mettre à jour l'utilisateur
-    return await this.prisma.utilisateur.update({
+    const updatedUser = await this.prisma.utilisateur.update({
       where: { id },
-      data: updateData,
+      data: {
+        ...userData,
+        ...(email && { email }),
+      },
       select: {
         id: true,
         prenom: true,
         nom: true,
         email: true,
-        role: true,
-        statut: true,
         telephone: true,
         adresse: true,
         specialite: true,
         barreau: true,
         numeroPermis: true,
+        role: true,
+        statut: true,
         creeLe: true,
         modifieLe: true,
         derniereConnexion: true,
       },
     });
+
+    // Invalider les caches
+    await this.cacheManager.del(`user:${id}`);
+    await this.invalidateUsersCache();
+
+    return updatedUser as UserResponse; // Conversion explicite
   }
 
-  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
-    const { ancienMotDePasse, nouveauMotDePasse, email, ...userData } =
-      updateProfileDto;
-
+  async remove(id: string): Promise<void> {
     // Vérifier si l'utilisateur existe
     const existingUser = await this.prisma.utilisateur.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        motDePasse: true,
-      },
+      where: { id },
     });
 
     if (!existingUser) {
-      throw new NotFoundException('Utilisateur non trouvé');
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
     }
 
-    // ✅ AMÉLIORATION: Validation du mot de passe actuel
-    if (nouveauMotDePasse) {
-      if (!ancienMotDePasse) {
-        throw new BadRequestException(
-          "L'ancien mot de passe est requis pour en définir un nouveau",
-        );
-      }
-
-      const isPasswordValid = await bcrypt.compare(
-        ancienMotDePasse,
-        existingUser.motDePasse,
-      );
-
-      if (!isPasswordValid) {
-        throw new UnauthorizedException('Ancien mot de passe incorrect');
-      }
-    }
-
-    // Si l'email est modifié, vérifier qu'il n'existe pas déjà
-    if (email && email.toLowerCase() !== existingUser.email) {
-      const emailExists = await this.prisma.utilisateur.findUnique({
-        where: { email: email.toLowerCase() },
-      });
-
-      if (emailExists) {
-        throw new ConflictException(
-          'Un utilisateur avec cet email existe déjà',
-        );
-      }
-    }
-
-    // Préparer les données à mettre à jour
-    const updateData: Prisma.UtilisateurUpdateInput = {
-      ...userData,
-      ...(email && { email: email.toLowerCase() }),
-    };
-
-    // Si un nouveau mot de passe est fourni, le hasher
-    if (nouveauMotDePasse) {
-      updateData.motDePasse = await bcrypt.hash(nouveauMotDePasse, 10);
-    }
-
-    // Mettre à jour le profil
-    return await this.prisma.utilisateur.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        prenom: true,
-        nom: true,
-        email: true,
-        role: true,
-        statut: true,
-        telephone: true,
-        adresse: true,
-        specialite: true,
-        barreau: true,
-        numeroPermis: true,
-        creeLe: true,
-        modifieLe: true,
-        derniereConnexion: true,
-      },
+    // Suppression logique : changer le statut en INACTIF
+    await this.prisma.utilisateur.update({
+      where: { id },
+      data: { statut: StatutUtilisateur.INACTIF },
     });
+
+    // Invalider les caches
+    await this.cacheManager.del(`user:${id}`);
+    await this.invalidateUsersCache();
   }
 
-  async changeStatus(id: string, changeStatusDto: ChangeStatusDto) {
-    const { statut, raison } = changeStatusDto;
+  // -------------------- MÉTHODES SPÉCIFIQUES --------------------
+  async changePassword(
+    id: string,
+    changePasswordDto: ChangerPasswordDto,
+  ): Promise<void> {
+    const { ancienMotDePasse, nouveauMotDePasse } = changePasswordDto;
 
-    const user = await this.prisma.utilisateur.findUnique({
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
       where: { id },
-      include: {
-        dossiers: {
-          where: { statut: { in: ['OUVERT', 'EN_COURS'] } },
-          select: { id: true, numeroUnique: true },
-        },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Vérifier l'ancien mot de passe
+    const isPasswordValid = await bcrypt.compare(
+      ancienMotDePasse,
+      utilisateur.motDePasse,
+    );
+    if (!isPasswordValid) {
+      throw new BadRequestException('Ancien mot de passe incorrect');
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(nouveauMotDePasse, 10);
+
+    // Mettre à jour le mot de passe
+    await this.prisma.utilisateur.update({
+      where: { id },
+      data: {
+        motDePasse: hashedPassword,
+        refreshToken: null, // Forcer la reconnexion
       },
     });
 
-    if (!user) {
-      throw new NotFoundException('Utilisateur non trouvé');
-    }
-
-    // ✅ AMÉLIORATION: Règles métier
-    if (
-      statut === StatutUtilisateur.SUSPENDU ||
-      statut === StatutUtilisateur.INACTIF
-    ) {
-      // Vérifier si dernier admin
-      if (user.role === RoleUtilisateur.ADMIN) {
-        const activeAdmins = await this.prisma.utilisateur.count({
-          where: {
-            role: RoleUtilisateur.ADMIN,
-            statut: StatutUtilisateur.ACTIF,
-            id: { not: id },
-          },
-        });
-
-        if (activeAdmins === 0) {
-          throw new BadRequestException(
-            'Impossible de désactiver le dernier administrateur actif',
-          );
-        }
-      }
-
-      // Avertir des dossiers actifs
-      if (user.dossiers.length > 0) {
-        throw new BadRequestException(
-          `L'utilisateur a ${user.dossiers.length} dossier(s) actif(s). ` +
-            `Veuillez les réassigner avant de changer le statut.`,
-        );
-      }
-    }
-
-    // ✅ AMÉLIORATION: Transaction pour atomicité
-    return await this.prisma.$transaction(async (tx) => {
-      // Mettre à jour le statut
-      const updatedUser = await tx.utilisateur.update({
-        where: { id },
-        data: { statut },
-        select: {
-          id: true,
-          prenom: true,
-          nom: true,
-          email: true,
-          role: true,
-          statut: true,
-        },
-      });
-
-      // Logger l'action
-      await tx.journalAudit.create({
-        data: {
-          utilisateurId: id,
-          action: 'CHANGE_STATUS',
-          typeCible: 'UTILISATEUR',
-          cibleId: id,
-          ancienneValeur: { statut: user.statut },
-          nouvelleValeur: { statut, raison },
-        },
-      });
-
-      return updatedUser;
-    });
+    // Invalider le cache
+    await this.cacheManager.del(`user:${id}`);
   }
 
-  async remove(id: string) {
-    // ✅ AMÉLIORATION: Soft delete avec vérifications
-    const user = await this.prisma.utilisateur.findUnique({
-      where: { id },
-      include: {
-        dossiers: { where: { statut: { not: 'CLOS' } } },
-        tachesAssignees: { where: { statut: { not: 'TERMINEE' } } },
-      },
-    });
+  async getUserStats(id: string): Promise<UserStatsResponse> {
+    const cacheKey = `user-stats:${id}`;
+    const cachedStats = await this.cacheManager.get(cacheKey);
 
-    if (!user) {
-      throw new NotFoundException('Utilisateur non trouvé');
+    if (cachedStats) {
+      return cachedStats as UserStatsResponse; // Conversion explicite
     }
 
-    // Vérifier si dernier admin
-    if (user.role === RoleUtilisateur.ADMIN) {
-      const activeAdmins = await this.prisma.utilisateur.count({
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Récupérer les statistiques
+    const [
+      totalDossiers,
+      dossiersActifs,
+      dossiersClos,
+      totalTaches,
+      tachesEnCours,
+      tachesTerminees,
+      totalEvenements,
+      evenementsAVenir,
+      chiffreAffaires,
+    ] = await Promise.all([
+      // Dossiers
+      this.prisma.dossier.count({
+        where: { responsableId: id },
+      }),
+      this.prisma.dossier.count({
         where: {
-          role: RoleUtilisateur.ADMIN,
-          statut: StatutUtilisateur.ACTIF,
-          id: { not: id },
+          responsableId: id,
+          statut: { in: ['OUVERT', 'EN_COURS'] },
+        },
+      }),
+      this.prisma.dossier.count({
+        where: {
+          responsableId: id,
+          statut: 'CLOS',
+        },
+      }),
+      // Tâches
+      this.prisma.tache.count({
+        where: { assigneeId: id },
+      }),
+      this.prisma.tache.count({
+        where: {
+          assigneeId: id,
+          statut: 'EN_COURS',
+        },
+      }),
+      this.prisma.tache.count({
+        where: {
+          assigneeId: id,
+          statut: 'TERMINEE',
+        },
+      }),
+      // Événements
+      this.prisma.evenementCalendrier.count({
+        where: { creeParId: id },
+      }),
+      this.prisma.evenementCalendrier.count({
+        where: {
+          creeParId: id,
+          debut: { gt: new Date() },
+        },
+      }),
+      // Chiffre d'affaires (pour les avocats) - Correction: enlever responsableId
+      this.prisma.honoraire.aggregate({
+        where: {
+          // Correction: utiliser clientId au lieu de responsableId
+          clientId: id,
+        },
+        _sum: { montantTTC: true },
+      }),
+    ]);
+
+    // Calculer le taux de victoire (pour les avocats)
+    let tauxVictoire;
+    if (utilisateur.role === RoleUtilisateur.AVOCAT && dossiersClos > 0) {
+      const dossiersGagnes = await this.prisma.dossier.count({
+        where: {
+          responsableId: id,
+          statut: 'CLOS',
+          // Ici, vous pourriez ajouter un champ pour indiquer si le dossier a été gagné
         },
       });
-
-      if (activeAdmins === 0) {
-        throw new BadRequestException(
-          'Impossible de supprimer le dernier administrateur actif',
-        );
-      }
+      tauxVictoire = (dossiersGagnes / dossiersClos) * 100;
     }
 
-    // Vérifier les dépendances actives
-    if (user.dossiers.length > 0) {
-      throw new BadRequestException(
-        `Impossible de supprimer: ${user.dossiers.length} dossier(s) actif(s). ` +
-          `Veuillez les réassigner ou les clôturer avant.`,
-      );
-    }
+    // Conversion explicite de Decimal à number
+    const chiffreAffairesValue = chiffreAffaires._sum.montantTTC
+      ? Number(chiffreAffaires._sum.montantTTC)
+      : 0;
 
-    if (user.tachesAssignees.length > 0) {
-      throw new BadRequestException(
-        `Impossible de supprimer: ${user.tachesAssignees.length} tâche(s) en cours. ` +
-          `Veuillez les réassigner ou les terminer avant.`,
-      );
-    }
-
-    // Soft delete avec transaction
-    return await this.prisma.$transaction(async (tx) => {
-      const deleted = await tx.utilisateur.update({
-        where: { id },
-        data: {
-          statut: StatutUtilisateur.INACTIF,
-          email: `deleted_${Date.now()}_${user.email}`, // Libérer l'email
-        },
-        select: {
-          id: true,
-          prenom: true,
-          nom: true,
-          email: true,
-          statut: true,
-        },
-      });
-
-      // Logger
-      await tx.journalAudit.create({
-        data: {
-          utilisateurId: id,
-          action: 'DELETE_USER',
-          typeCible: 'UTILISATEUR',
-          cibleId: id,
-          ancienneValeur: {
-            statut: user.statut,
-            email: user.email,
-          },
-          nouvelleValeur: {
-            statut: StatutUtilisateur.INACTIF,
-            email: deleted.email,
-          },
-        },
-      });
-
-      return { message: 'Utilisateur supprimé avec succès', user: deleted };
-    });
-  }
-
-  async bulkAction(bulkActionDto: BulkActionDto) {
-    const { userIds, action, role, statut, raison } = bulkActionDto;
-
-    // ✅ AMÉLIORATION: Transaction pour atomicité
-    return await this.prisma.$transaction(async (tx) => {
-      // Vérifier si tous les utilisateurs existent
-      const existingUsers = await tx.utilisateur.findMany({
-        where: { id: { in: userIds } },
-      });
-
-      if (existingUsers.length !== userIds.length) {
-        throw new NotFoundException('Un ou plusieurs utilisateurs non trouvés');
-      }
-
-      let result;
-
-      switch (action) {
-        case 'changeRole':
-          if (!role) {
-            throw new BadRequestException(
-              'Le rôle est requis pour cette action',
-            );
-          }
-
-          // Mettre à jour le rôle des utilisateurs
-          result = await tx.utilisateur.updateMany({
-            where: { id: { in: userIds } },
-            data: { role },
-          });
-
-          // ✅ AMÉLIORATION: Audit en batch
-          await tx.journalAudit.createMany({
-            data: userIds.map((userId) => ({
-              utilisateurId: userId,
-              action: 'BULK_CHANGE_ROLE',
-              typeCible: 'UTILISATEUR',
-              cibleId: userId,
-              nouvelleValeur: { role },
-            })),
-          });
-
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            message: `${result.count} utilisateur(s) mis à jour avec le rôle ${role}`,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            count: result.count,
-          };
-
-        case 'changeStatus':
-          if (!statut) {
-            throw new BadRequestException(
-              'Le statut est requis pour cette action',
-            );
-          }
-
-          result = await tx.utilisateur.updateMany({
-            where: { id: { in: userIds } },
-            data: { statut },
-          });
-
-          // Audit en batch
-          await tx.journalAudit.createMany({
-            data: userIds.map((userId) => ({
-              utilisateurId: userId,
-              action: 'BULK_CHANGE_STATUS',
-              typeCible: 'UTILISATEUR',
-              cibleId: userId,
-              nouvelleValeur: { statut, raison },
-            })),
-          });
-
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            message: `${result.count} utilisateur(s) mis à jour avec le statut ${statut}`,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            count: result.count,
-          };
-
-        case 'delete':
-          // Vérifier les dépendances pour chaque utilisateur
-          for (const userId of userIds) {
-            const user = await tx.utilisateur.findUnique({
-              where: { id: userId },
-              include: {
-                dossiers: { where: { statut: { not: 'CLOS' } } },
-              },
-            });
-
-            // ✅ Correction : vérifier que dossiers existe et a une longueur
-            if (user?.dossiers && user.dossiers.length > 0) {
-              throw new BadRequestException(
-                `Impossible de supprimer l'utilisateur ${user.prenom} ${user.nom}: ` +
-                  `${user.dossiers.length} dossier(s) actif(s)`,
-              );
-            }
-          }
-
-          // Soft delete en masse
-          result = await tx.utilisateur.updateMany({
-            where: { id: { in: userIds } },
-            data: { statut: StatutUtilisateur.INACTIF },
-          });
-
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            message: `${result.count} utilisateur(s) supprimé(s) avec succès`,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            count: result.count,
-          };
-
-        default:
-          throw new BadRequestException('Action non valide');
-      }
-    });
-  }
-
-  async getStats(): Promise<UserStats> {
-    // Obtenir le nombre total d'utilisateurs par statut
-    const statsByStatus = await this.prisma.utilisateur.groupBy({
-      by: ['statut'],
-      _count: {
-        statut: true,
-      },
-    });
-
-    // Obtenir le nombre total d'utilisateurs par rôle
-    const statsByRole = await this.prisma.utilisateur.groupBy({
-      by: ['role'],
-      _count: {
-        role: true,
-      },
-    });
-
-    // ✅ AMÉLIORATION: Requête ORM au lieu de SQL brut
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const recentUsers = await this.prisma.utilisateur.findMany({
-      where: {
-        creeLe: {
-          gte: sixMonthsAgo,
-        },
-      },
-      select: {
-        creeLe: true,
-      },
-    });
-
-    // Grouper par mois en JavaScript
-    const activityMap = new Map<string, number>();
-    recentUsers.forEach((user) => {
-      const monthKey = user.creeLe.toISOString().slice(0, 7); // YYYY-MM
-      activityMap.set(monthKey, (activityMap.get(monthKey) || 0) + 1);
-    });
-
-    const formattedActivity = Array.from(activityMap.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => b.date.localeCompare(a.date));
-
-    // Formater les données
-    const total = statsByStatus.reduce(
-      (sum, stat) => sum + stat._count.statut,
-      0,
-    );
-    const actifs =
-      statsByStatus.find((stat) => stat.statut === StatutUtilisateur.ACTIF)
-        ?._count?.statut || 0;
-    const inactifs =
-      statsByStatus.find((stat) => stat.statut === StatutUtilisateur.INACTIF)
-        ?._count?.statut || 0;
-    const suspendus =
-      statsByStatus.find((stat) => stat.statut === StatutUtilisateur.SUSPENDU)
-        ?._count?.statut || 0;
-
-    const parRole = statsByRole.reduce(
-      (acc, stat) => {
-        acc[stat.role] = stat._count.role;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    return {
-      total,
-      actifs,
-      inactifs,
-      suspendus,
-      parRole,
-      recentActivity: formattedActivity,
+    const stats: UserStatsResponse = {
+      totalDossiers,
+      dossiersActifs,
+      dossiersClos,
+      totalTaches,
+      tachesEnCours,
+      tachesTerminees,
+      totalEvenements,
+      evenementsAVenir,
+      chiffreAffaires: chiffreAffairesValue, // Conversion explicite
+      tauxVictoire,
     };
+
+    // Mettre en cache pour 15 minutes
+    await this.cacheManager.set(cacheKey, stats, 900);
+
+    return stats;
   }
 
-  // Version corrigée de la méthode getPerformance()
+  async getUserDossiers(id: string, query: QueryUsersDto) {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'creeLe',
+      sortOrder = 'desc',
+      search,
+    } = query;
 
-  async getPerformance(): Promise<UserPerformance[]> {
-    // ✅ CORRECTION MAJEURE: Optimisation requêtes N+1
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Clé de cache pour cette requête
+    const cacheKey = `user-dossiers:${id}:${JSON.stringify(query)}`;
+    const cachedResult = await this.cacheManager.get(cacheKey);
+
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Construire les filtres
+    const where: any = { responsableId: id };
+
+    if (search) {
+      where.OR = [
+        { titre: { contains: search, mode: 'insensitive' } },
+        { numeroUnique: { contains: search, mode: 'insensitive' } },
+        {
+          client: {
+            OR: [
+              { prenom: { contains: search, mode: 'insensitive' } },
+              { nom: { contains: search, mode: 'insensitive' } },
+              { entreprise: { contains: search, mode: 'insensitive' } },
+            ],
+          },
+        },
+      ];
+    }
+
+    // Obtenir les paramètres de pagination
+    const paginationParams = PaginationUtil.getPrismaPaginationParams({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Exécuter la requête
+    const [dossiers, total] = await Promise.all([
+      this.prisma.dossier.findMany({
+        where,
+        ...paginationParams,
+        include: {
+          client: {
+            select: {
+              id: true,
+              prenom: true,
+              nom: true,
+              entreprise: true,
+            },
+          },
+        },
+      }),
+      this.prisma.dossier.count({ where }),
+    ]);
+
+    // Formater la réponse
+    const result = PaginationUtil.createPaginationResult(dossiers, total, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Mettre en cache pour 5 minutes
+    await this.cacheManager.set(cacheKey, result, 300);
+
+    return result;
+  }
+
+  async getUserTaches(id: string, query: QueryUsersDto) {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'creeLe',
+      sortOrder = 'desc',
+      search,
+    } = query;
+
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Clé de cache pour cette requête
+    const cacheKey = `user-taches:${id}:${JSON.stringify(query)}`;
+    const cachedResult = await this.cacheManager.get(cacheKey);
+
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Construire les filtres
+    const where: any = { assigneeId: id };
+
+    if (search) {
+      where.OR = [
+        { titre: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Obtenir les paramètres de pagination
+    const paginationParams = PaginationUtil.getPrismaPaginationParams({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Exécuter la requête
+    const [taches, total] = await Promise.all([
+      this.prisma.tache.findMany({
+        where,
+        ...paginationParams,
+        include: {
+          dossier: {
+            select: {
+              id: true,
+              numeroUnique: true,
+              titre: true,
+            },
+          },
+          createur: {
+            select: {
+              id: true,
+              prenom: true,
+              nom: true,
+            },
+          },
+        },
+      }),
+      this.prisma.tache.count({ where }),
+    ]);
+
+    // Formater la réponse
+    const result = PaginationUtil.createPaginationResult(taches, total, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Mettre en cache pour 5 minutes
+    await this.cacheManager.set(cacheKey, result, 300);
+
+    return result;
+  }
+
+  async getUserEvenements(id: string, query: QueryUsersDto) {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'debut',
+      sortOrder = 'asc',
+      search,
+    } = query;
+
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Clé de cache pour cette requête
+    const cacheKey = `user-evenements:${id}:${JSON.stringify(query)}`;
+    const cachedResult = await this.cacheManager.get(cacheKey);
+
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Construire les filtres
+    const where: any = { creeParId: id };
+
+    if (search) {
+      where.OR = [
+        { titre: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Obtenir les paramètres de pagination
+    const paginationParams = PaginationUtil.getPrismaPaginationParams({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Exécuter la requête
+    const [evenements, total] = await Promise.all([
+      this.prisma.evenementCalendrier.findMany({
+        where,
+        ...paginationParams,
+        include: {
+          dossier: {
+            select: {
+              id: true,
+              numeroUnique: true,
+              titre: true,
+            },
+          },
+        },
+      }),
+      this.prisma.evenementCalendrier.count({ where }),
+    ]);
+
+    // Formater la réponse
+    const result = PaginationUtil.createPaginationResult(evenements, total, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Mettre en cache pour 5 minutes
+    await this.cacheManager.set(cacheKey, result, 300);
+
+    return result;
+  }
+
+  async getUserNotifications(id: string, query: QueryUsersDto) {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'creeLe',
+      sortOrder = 'desc',
+    } = query;
+
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Clé de cache pour cette requête
+    const cacheKey = `user-notifications:${id}:${JSON.stringify(query)}`;
+    const cachedResult = await this.cacheManager.get(cacheKey);
+
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Obtenir les paramètres de pagination
+    const paginationParams = PaginationUtil.getPrismaPaginationParams({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Exécuter la requête
+    const [notifications, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where: { utilisateurId: id },
+        ...paginationParams,
+      }),
+      this.prisma.notification.count({ where: { utilisateurId: id } }),
+    ]);
+
+    // Formater la réponse
+    const result = PaginationUtil.createPaginationResult(notifications, total, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    // Mettre en cache pour 2 minutes (les notifications changent fréquemment)
+    await this.cacheManager.set(cacheKey, result, 120);
+
+    return result;
+  }
+
+  async markNotificationsAsRead(id: string): Promise<void> {
+    // Vérifier si l'utilisateur existe
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { id },
+    });
+
+    if (!utilisateur) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} non trouvé`);
+    }
+
+    // Marquer toutes les notifications comme lues
+    await this.prisma.notification.updateMany({
+      where: {
+        utilisateurId: id,
+        lu: false,
+      },
+      data: { lu: true },
+    });
+
+    // Invalider le cache des notifications
+    await this.cacheManager.del(`user-notifications:${id}:*`);
+  }
+
+  async getAvocatsDisponibles(dateDebut?: Date, dateFin?: Date) {
+    const cacheKey = `avocats-disponibles:${dateDebut?.toISOString() || 'all'}:${dateFin?.toISOString() || 'all'}`;
+    const cachedResult = await this.cacheManager.get(cacheKey);
+
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Récupérer tous les avocats actifs
     const avocats = await this.prisma.utilisateur.findMany({
       where: {
-        role: {
-          in: [RoleUtilisateur.AVOCAT, RoleUtilisateur.DG],
-        },
+        role: RoleUtilisateur.AVOCAT,
         statut: StatutUtilisateur.ACTIF,
       },
       select: {
         id: true,
         prenom: true,
         nom: true,
-        role: true,
-      },
-    });
-
-    const avocatIds = avocats.map((a) => a.id);
-
-    if (avocatIds.length === 0) {
-      return [];
-    }
-
-    // ✅ Une seule requête groupée pour tous les dossiers
-    const dossierStats = await this.prisma.dossier.groupBy({
-      by: ['responsableId'],
-      where: { responsableId: { in: avocatIds } },
-      _count: { id: true },
-    });
-
-    // ✅ Dossiers terminés en une requête
-    const dossiersClos = await this.prisma.dossier.groupBy({
-      by: ['responsableId'],
-      where: {
-        responsableId: { in: avocatIds },
-        statut: 'CLOS',
-      },
-      _count: { id: true },
-    });
-
-    // ✅ HONORAIRES - Correction complète
-    const honoraires = await this.prisma.honoraire.groupBy({
-      by: ['dossierId'],
-      where: {
-        dossier: {
-          responsableId: { in: avocatIds },
-        },
-      },
-      _sum: {
-        montantTTC: true,
-      },
-    });
-
-    // Récupérer les dossiers pour les honoraires
-    const dossierIdsForHonoraires = honoraires
-      .map((h) => h.dossierId)
-      .filter((id): id is string => id != null);
-    const dossiersForHonoraires = await this.prisma.dossier.findMany({
-      where: { id: { in: dossierIdsForHonoraires } },
-      select: { id: true, responsableId: true },
-    });
-
-    const dossierMapForHonoraires = new Map(
-      dossiersForHonoraires.map((d) => [d.id, d.responsableId]),
-    );
-
-    // Construire la map des honoraires par responsableId
-    const honorairesMap = new Map<string, number>();
-    for (const h of honoraires) {
-      const responsableId = h.dossierId
-        ? dossierMapForHonoraires.get(h.dossierId)
-        : null;
-      if (responsableId && h._sum?.montantTTC) {
-        const current = honorairesMap.get(responsableId) || 0;
-        honorairesMap.set(
-          responsableId,
-          current + h._sum.montantTTC.toNumber(),
-        );
-      }
-    }
-
-    // ✅ SATISFACTION - Correction complète
-    const satisfactions = await this.prisma.satisfaction.groupBy({
-      by: ['dossierId'],
-      where: {
-        dossier: {
-          responsableId: { in: avocatIds },
-        },
-      },
-      _avg: {
-        note: true,
-      },
-    });
-
-    // Récupérer tous les dossierId uniques pour satisfaction
-    const dossierIdsForSatisfaction = satisfactions
-      .map((s) => s.dossierId)
-      .filter((id): id is string => id != null);
-
-    // Récupérer tous les dossiers en une seule requête
-    const dossiersForSatisfaction = await this.prisma.dossier.findMany({
-      where: { id: { in: dossierIdsForSatisfaction } },
-      select: { id: true, responsableId: true },
-    });
-
-    // Créer une map pour un accès rapide
-    const dossierMapForSatisfaction = new Map(
-      dossiersForSatisfaction.map((d) => [d.id, d.responsableId]),
-    );
-
-    // Construire la satisfaction map
-    const satisfactionMap = new Map<string, number[]>();
-    for (const s of satisfactions) {
-      const responsableId = s.dossierId
-        ? dossierMapForSatisfaction.get(s.dossierId)
-        : null;
-      if (responsableId && s._avg?.note != null) {
-        if (!satisfactionMap.has(responsableId)) {
-          satisfactionMap.set(responsableId, []);
-        }
-        satisfactionMap.get(responsableId)!.push(s._avg.note);
-      }
-    }
-
-    // ✅ DÉLAIS - Requête SQL optimisée avec paramètres bindés
-    const delaisStats = await this.prisma.$queryRaw<
-      Array<{
-        responsableId: string;
-        delaiMoyen: number;
-      }>
-    >`
-      SELECT 
-        "responsableId",
-        AVG(EXTRACT(EPOCH FROM ("modifieLe" - "creeLe")) / 86400) as "delaiMoyen"
-      FROM "Dossier"
-      WHERE "responsableId" = ANY(${avocatIds}::text[])
-        AND "statut" = 'CLOS'
-      GROUP BY "responsableId"
-    `;
-
-    // ✅ Construire le résultat final
-    return avocats.map((avocat) => {
-      const dossiersTotal =
-        dossierStats.find((s) => s.responsableId === avocat.id)?._count.id || 0;
-      const dossiersTermines =
-        dossiersClos.find((s) => s.responsableId === avocat.id)?._count.id || 0;
-      const tauxCompletion =
-        dossiersTotal > 0 ? (dossiersTermines / dossiersTotal) * 100 : 0;
-
-      const satisfactionsAvocat = satisfactionMap.get(avocat.id) || [];
-      const satisfactionMoyenne =
-        satisfactionsAvocat.length > 0
-          ? satisfactionsAvocat.reduce((a, b) => a + b, 0) /
-            satisfactionsAvocat.length
-          : 0;
-
-      const delaiMoyen =
-        delaisStats.find((d) => d.responsableId === avocat.id)?.delaiMoyen || 0;
-
-      return {
-        userId: avocat.id,
-        nomComplet: `${avocat.prenom} ${avocat.nom}`,
-        role: avocat.role,
-        nombreDossiers: dossiersTotal,
-        dossiersTermines,
-        tauxCompletion: Math.round(tauxCompletion * 100) / 100,
-        chiffreAffaires: honorairesMap.get(avocat.id) || 0,
-        satisfactionMoyenne: Math.round(satisfactionMoyenne * 100) / 100,
-        delaiMoyenTraitement: Math.round(delaiMoyen * 100) / 100,
-      };
-    });
-  }
-
-  async search(query: string, limit: number = 10) {
-    // ✅ AMÉLIORATION: Validation de la limite
-    if (!query || query.trim().length < 2) {
-      throw new BadRequestException(
-        'La recherche doit contenir au moins 2 caractères',
-      );
-    }
-
-    if (limit > 50) {
-      throw new BadRequestException('Limite maximale: 50 résultats');
-    }
-
-    return await this.prisma.utilisateur.findMany({
-      where: {
-        OR: [
-          { prenom: { contains: query, mode: 'insensitive' } },
-          { nom: { contains: query, mode: 'insensitive' } },
-          { email: { contains: query, mode: 'insensitive' } },
-          { telephone: { contains: query, mode: 'insensitive' } },
-          { specialite: { contains: query, mode: 'insensitive' } },
-          { barreau: { contains: query, mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        prenom: true,
-        nom: true,
         email: true,
-        role: true,
-        statut: true,
-        telephone: true,
         specialite: true,
         barreau: true,
+        numeroPermis: true,
       },
-      take: limit,
     });
+
+    // Si des dates sont fournies, vérifier la disponibilité
+    if (dateDebut && dateFin) {
+      // Récupérer les événements des avocats dans cette période
+      const evenements = await this.prisma.evenementCalendrier.findMany({
+        where: {
+          creeParId: { in: avocats.map((a) => a.id) },
+          OR: [
+            {
+              debut: { lte: dateDebut },
+              fin: { gte: dateDebut },
+            },
+            {
+              debut: { lte: dateFin },
+              fin: { gte: dateFin },
+            },
+            {
+              debut: { gte: dateDebut },
+              fin: { lte: dateFin },
+            },
+          ],
+        },
+        select: {
+          creeParId: true,
+        },
+      });
+
+      // Identifier les avocats occupés
+      const avocatsOccupes = new Set(evenements.map((e) => e.creeParId));
+
+      // Filtrer les avocats disponibles
+      const avocatsDisponibles = avocats.filter(
+        (a) => !avocatsOccupes.has(a.id),
+      );
+
+      // Mettre en cache pour 10 minutes
+      await this.cacheManager.set(cacheKey, avocatsDisponibles, 600);
+
+      return avocatsDisponibles;
+    }
+
+    // Mettre en cache pour 30 minutes (sans filtre de dates)
+    await this.cacheManager.set(cacheKey, avocats, 1800);
+
+    return avocats;
   }
 
-  getAvailableRoles() {
-    // ✅ AMÉLIORATION: Formater pour l'UI
-    return Object.values(RoleUtilisateur).map((role) => ({
-      value: role,
-      label: role,
-    }));
-  }
+  // -------------------- MÉTHODES UTILITAIRES --------------------
+  private async invalidateUsersCache(): Promise<void> {
+    try {
+      // Invalider tous les caches liés aux utilisateurs
+      // Note: Cette implémentation dépend de votre version de cache-manager
+      if (
+        'stores' in this.cacheManager &&
+        Array.isArray(this.cacheManager.stores) &&
+        this.cacheManager.stores.length > 0
+      ) {
+        const store = this.cacheManager.stores[0];
 
-  getAvailableStatuses() {
-    // ✅ AMÉLIORATION: Formater pour l'UI
-    return Object.values(StatutUtilisateur).map((statut) => ({
-      value: statut,
-      label: statut,
-    }));
+        // Si le store a une méthode keys
+        if ('keys' in store && typeof store.keys === 'function') {
+          const keys = await store.keys('users:*');
+          if (keys.length > 0) {
+            // Correction: utiliser la méthode delete au lieu de del
+            if ('delete' in store && typeof store.delete === 'function') {
+              await Promise.all(keys.map((key) => store.delete(key)));
+            } else if ('clear' in store && typeof store.clear === 'function') {
+              await store.clear();
+            }
+          }
+        } else if ('clear' in store && typeof store.clear === 'function') {
+          await store.clear();
+        }
+      } else if (
+        'reset' in this.cacheManager &&
+        typeof this.cacheManager.reset === 'function'
+      ) {
+        // Alternative: vider tout le cache
+        await this.cacheManager.reset();
+      }
+    } catch (error) {
+      console.error(
+        "❌ Erreur lors de l'invalidation du cache des utilisateurs:",
+        error,
+      );
+    }
   }
 }

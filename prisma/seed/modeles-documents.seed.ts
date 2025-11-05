@@ -1,4 +1,4 @@
-import { PrismaClient, CategorieModele, TypeDossier } from '@prisma/client';
+/*import { PrismaClient, CategorieModele, TypeDossier } from '@prisma/client';
 
 export async function modelesDocumentsSeed(prisma: PrismaClient) {
   console.log('Création des modèles de documents...');
@@ -122,4 +122,4 @@ export async function modelesDocumentsSeed(prisma: PrismaClient) {
   );
 
   console.log('Modèles de documents créés ou mis à jour avec succès!');
-}
+}*/

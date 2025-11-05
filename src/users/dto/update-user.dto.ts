@@ -1,96 +1,97 @@
-// ============================================
-// update-user.dto.ts
-// ============================================
-import {
-  IsEmail,
-  IsString,
-  IsEnum,
-  IsOptional,
-  MinLength,
-  Matches,
-  ValidateIf,
-  IsNotEmpty,
-} from 'class-validator';
-import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsOptional, IsString, IsEnum } from 'class-validator';
 import { RoleUtilisateur, StatutUtilisateur } from '@prisma/client';
 
 export class UpdateUserDto {
-  @ApiProperty({ example: 'Jean', required: false })
-  @IsString()
+  @ApiProperty({
+    description: "Prénom de l'utilisateur",
+    example: 'Jean',
+    required: false,
+  })
   @IsOptional()
+  @IsString()
   prenom?: string;
 
-  @ApiProperty({ example: 'Dupont', required: false })
-  @IsString()
+  @ApiProperty({
+    description: "Nom de l'utilisateur",
+    example: 'Dupont',
+    required: false,
+  })
   @IsOptional()
+  @IsString()
   nom?: string;
 
-  @ApiProperty({ example: 'jean.dupont@cabinet.com', required: false })
-  @IsEmail({}, { message: "Format d'email invalide" })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  @Transform(({ value }) => value?.toLowerCase().trim())
+  @ApiProperty({
+    description: "Email de l'utilisateur",
+    example: 'jean.dupont@example.com',
+    required: false,
+  })
   @IsOptional()
+  @IsEmail()
   email?: string;
 
   @ApiProperty({
-    example: 'NewStrongP@ss123',
+    description: 'Téléphone',
+    example: '+237 699 123 456',
     required: false,
-    description:
-      'Minimum 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 symbole',
   })
+  @IsOptional()
   @IsString()
-  @MinLength(8, {
-    message: 'Le mot de passe doit contenir au moins 8 caractères',
-  })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
-    message:
-      'Le mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un symbole',
-  })
-  @IsOptional()
-  motDePasse?: string;
-
-  @ApiProperty({ enum: RoleUtilisateur, required: false })
-  @IsEnum(RoleUtilisateur)
-  @IsOptional()
-  role?: RoleUtilisateur;
-
-  @ApiProperty({ enum: StatutUtilisateur, required: false })
-  @IsEnum(StatutUtilisateur)
-  @IsOptional()
-  statut?: StatutUtilisateur;
-
-  @ApiProperty({ example: '+237612345678', required: false })
-  @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message:
-      'Format de téléphone invalide (utilisez le format international: +237...)',
-  })
-  @IsOptional()
   telephone?: string;
 
-  @ApiProperty({ example: 'Douala, Cameroun', required: false })
-  @IsString()
+  @ApiProperty({
+    description: 'Adresse',
+    example: 'Yaoundé, Cameroun',
+    required: false,
+  })
   @IsOptional()
+  @IsString()
   adresse?: string;
 
-  @ApiProperty({ example: 'Droit des affaires', required: false })
-  @IsString()
+  @ApiProperty({
+    description: 'Spécialité juridique',
+    example: 'Droit des affaires',
+    required: false,
+  })
   @IsOptional()
+  @IsString()
   specialite?: string;
 
-  @ApiProperty({ example: 'Barreau de Douala', required: false })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  @ValidateIf((o) => o.role === RoleUtilisateur.AVOCAT)
-  @IsNotEmpty({ message: 'Le barreau est requis pour les avocats' })
-  @IsString()
+  @ApiProperty({
+    description: "Barreau d'inscription",
+    example: 'Barreau de Yaoundé',
+    required: false,
+  })
   @IsOptional()
+  @IsString()
   barreau?: string;
 
-  @ApiProperty({ example: 'AV123456', required: false })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  @ValidateIf((o) => o.role === RoleUtilisateur.AVOCAT)
-  @IsNotEmpty({ message: 'Le numéro de permis est requis pour les avocats' })
-  @IsString()
+  @ApiProperty({
+    description: 'Numéro de permis',
+    example: '12345/ABC',
+    required: false,
+  })
   @IsOptional()
+  @IsString()
   numeroPermis?: string;
+
+  @ApiProperty({
+    description: "Rôle de l'utilisateur",
+    enum: RoleUtilisateur,
+    example: RoleUtilisateur.AVOCAT,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(RoleUtilisateur)
+  role?: RoleUtilisateur;
+
+  @ApiProperty({
+    description: "Statut de l'utilisateur",
+    enum: StatutUtilisateur,
+    example: StatutUtilisateur.ACTIF,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(StatutUtilisateur)
+  statut?: StatutUtilisateur;
 }

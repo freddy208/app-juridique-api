@@ -53,7 +53,7 @@ export class AuditInterceptor implements NestInterceptor {
                 ? JSON.stringify(ancienneValeur)
                 : Prisma.JsonNull,
               nouvelleValeur: nouvelleValeur
-                ? JSON.stringify(ancienneValeur)
+                ? JSON.stringify(nouvelleValeur)
                 : Prisma.JsonNull,
             },
           });

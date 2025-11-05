@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -33,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(payload: any) {
     const utilisateur = await this.prisma.utilisateur.findUnique({
       where: { id: payload.sub },
       select: {
@@ -46,10 +49,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
     });
 
-    if (!utilisateur || utilisateur.statut !== 'ACTIF') {
-      throw new UnauthorizedException('Utilisateur non trouvé ou inactif');
-    }
+    if (!utilisateur) throw new UnauthorizedException();
 
-    return utilisateur;
+    // Fusionner les infos utilisateur + permissions du payload
+    return {
+      ...utilisateur,
+      permissions: payload.permissions || [],
+    };
   }
 }

@@ -1,15 +1,16 @@
-// clients.module.ts
-import { Module } from '@nestjs/common';
-import { ClientsService } from './clients.service';
-import { ClientsController } from './clients.controller';
+import { Module, forwardRef } from '@nestjs/common';
+import { ClientService } from './clients.service';
+import { ClientController } from './clients.controller';
 import { PrismaModule } from '../prisma.module';
-import { AuthModule } from '@/auth/auth.module';
-import { CloudinaryModule } from '@/cloudinary/cloudinary.module';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { DossiersModule } from '../dossiers/dossiers.module';
+import { PrismaService } from '@/prisma.service';
+import { PermissionsService } from '@/permissions/permissions.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, CloudinaryModule],
-  controllers: [ClientsController],
-  providers: [ClientsService],
-  exports: [ClientsService],
+  imports: [PrismaModule, CloudinaryModule, forwardRef(() => DossiersModule)],
+  controllers: [ClientController],
+  providers: [ClientService, PrismaService, PermissionsService],
+  exports: [ClientService],
 })
-export class ClientsModule {}
+export class ClientModule {}

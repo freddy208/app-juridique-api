@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 // cloudinary.service.ts
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
@@ -67,6 +69,24 @@ export class CloudinaryService {
       );
 
       uploadStream.end(fileBuffer);
+    });
+  }
+  // Ajouter cette méthode à la classe CloudinaryService
+  async deleteFile(publicId: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      void cloudinary.uploader.destroy(
+        publicId,
+        { resource_type: 'auto' },
+        (error, result) => {
+          if (error) {
+            this.logger.error(
+              `❌ Erreur suppression Cloudinary: ${error.message}`,
+            );
+            return reject(error);
+          }
+          resolve(result);
+        },
+      );
     });
   }
 }
