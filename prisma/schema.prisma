@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -417,7 +417,7 @@ model Note {
   titre         String?
   clientId      String?
   dossierId     String?
-  utilisateurId String et aussi on doit de meme trouver la meilleure facon pour gerer l'assignation d'un evenement a un utilisateurs , 
+  utilisateurId String
   contenu       String
   statut        StatutNote  @default(ACTIF) // <- ajouter
   creeLe        DateTime    @default(now())
