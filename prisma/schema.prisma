@@ -417,7 +417,7 @@ model Note {
   titre         String?
   clientId      String?
   dossierId     String?
-  utilisateurId String
+  utilisateurId String et aussi on doit de meme trouver la meilleure facon pour gerer l'assignation d'un evenement a un utilisateurs , 
   contenu       String
   statut        StatutNote  @default(ACTIF) // <- ajouter
   creeLe        DateTime    @default(now())

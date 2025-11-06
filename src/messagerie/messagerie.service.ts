@@ -1224,10 +1224,12 @@ export class MessagerieService {
 
           const allKeys = [...keys, ...messageKeys, ...statsKeys];
 
-          if (allKeys.length > 0) {
-            if ('delete' in store && typeof store.delete === 'function') {
-              await Promise.all(allKeys.map((key) => store.delete(key)));
-            }
+          if (
+            allKeys.length > 0 &&
+            'delete' in store &&
+            typeof store.delete === 'function'
+          ) {
+            await Promise.all(allKeys.map((key) => store.delete(key)));
           }
         }
       }

@@ -455,10 +455,12 @@ export class CorrespondanceService {
 
         if ('keys' in store && typeof store.keys === 'function') {
           const keys = await store.keys('correspondances:*');
-          if (keys.length > 0) {
-            if ('delete' in store && typeof store.delete === 'function') {
-              await Promise.all(keys.map((key) => store.delete(key)));
-            }
+          if (
+            keys.length > 0 &&
+            'delete' in store &&
+            typeof store.delete === 'function'
+          ) {
+            await Promise.all(keys.map((key) => store.delete(key)));
           }
         }
       }
